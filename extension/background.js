@@ -310,6 +310,44 @@ async function openMonitorWindow() {
   }
 }
 
+async function closeMonitorWindow() {
+  if (!Number.isInteger(state.viewerWindowId)) {
+    return;
+  }
+
+  const windowId = state.viewerWindowId;
+  state.viewerWindowId = null;
+
+  try {
+    await chrome.windows.remove(windowId);
+  } catch {
+    // Window may already be closed.
+  }
+}
+
+async function reloadTrackedTab() {
+  let targetTabId = state.activeTabId;
+
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    const fallbackTab = await findTrackableActiveTab(null);
+    if (fallbackTab && Number.isInteger(fallbackTab.id)) {
+      targetTabId = fallbackTab.id;
+      setActiveTab(targetTabId, "tracked-tab-reselected");
+    }
+  }
+
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return { ok: false, reason: "no-tracked-tab" };
+  }
+
+  try {
+    await chrome.tabs.reload(targetTabId);
+    return { ok: true, tabId: targetTabId };
+  } catch {
+    return { ok: false, reason: "reload-failed" };
+  }
+}
+
 function notifyPopup(message) {
   try {
     chrome.runtime.sendMessage(message, () => {
@@ -624,6 +662,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === "reload-tracked-tab") {
+    reloadTrackedTab().then((result) => {
+      sendResponse(result);
+    });
+    return true;
+  }
+
   return false;
 });
 
@@ -658,6 +703,7 @@ chrome.tabs.onUpdated.addListener(onTabUpdated);
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === state.activeTabId) {
+    closeMonitorWindow();
     setActiveTab(-1, "active-tab-closed");
     refreshActiveTab();
   }

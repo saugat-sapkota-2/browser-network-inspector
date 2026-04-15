@@ -70,6 +70,7 @@
       </div>
 
       <div class="action-group">
+        <button id="reloadTabBtn" class="ghost-btn">Reload Tab</button>
         <button id="clearLogsBtn" class="ghost-btn">Clear Logs</button>
         <button id="exportJsonBtn" class="ghost-btn">Export JSON</button>
         <button id="exportCsvBtn" class="ghost-btn">Export CSV</button>
@@ -80,6 +81,16 @@
       <div class="sources-head">
         <h2>Captured Source Links</h2>
         <span id="sourcesCount">0</span>
+      </div>
+      <div class="sources-toolbar">
+        <div class="source-filter-group" id="sourceFilterGroup">
+          <button class="source-filter-chip is-active" data-source-filter="all">All</button>
+          <button class="source-filter-chip" data-source-filter="js">.js</button>
+          <button class="source-filter-chip" data-source-filter="image">Image</button>
+          <button class="source-filter-chip" data-source-filter="video">Video</button>
+          <button class="source-filter-chip" data-source-filter="other">Other</button>
+        </div>
+        <button id="reloadTabBtnSources" class="ghost-btn">Reload Tab</button>
       </div>
       <div id="sourceList" class="source-list"></div>
     </section>

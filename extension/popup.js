@@ -1,4 +1,8 @@
 const TYPE_FILTER_KEYS = new Set(["xhrfetch", "images", "media", "scripts", "documents"]);
+const SOURCE_FILTER_KEYS = new Set(["all", "js", "image", "video", "other"]);
+const SCRIPT_FILE_EXTENSIONS = new Set(["js", "mjs", "cjs"]);
+const IMAGE_FILE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "bmp", "svg", "webp", "avif", "ico", "tif", "tiff"]);
+const VIDEO_FILE_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "flv", "wmv", "ogv", "m3u8", "mpd", "ts"]);
 
 const state = {
   allLogs: [],
@@ -26,6 +30,7 @@ const state = {
   flushTimer: null,
   rerenderTimer: null,
   sourceRenderTimer: null,
+  sourceFilter: "all",
   renderedRows: new Map()
 };
 
@@ -41,6 +46,9 @@ const dom = {
   statTotalData: null,
   searchInput: null,
   filterGroup: null,
+  sourceFilterGroup: null,
+  reloadTabBtn: null,
+  reloadTabBtnSources: null,
   clearLogsBtn: null,
   exportJsonBtn: null,
   exportCsvBtn: null,
@@ -71,6 +79,9 @@ function bindDom() {
   dom.statTotalData = document.getElementById("statTotalData");
   dom.searchInput = document.getElementById("searchInput");
   dom.filterGroup = document.getElementById("filterGroup");
+  dom.sourceFilterGroup = document.getElementById("sourceFilterGroup");
+  dom.reloadTabBtn = document.getElementById("reloadTabBtn");
+  dom.reloadTabBtnSources = document.getElementById("reloadTabBtnSources");
   dom.clearLogsBtn = document.getElementById("clearLogsBtn");
   dom.exportJsonBtn = document.getElementById("exportJsonBtn");
   dom.exportCsvBtn = document.getElementById("exportCsvBtn");
@@ -96,6 +107,25 @@ function bindEvents() {
     state.searchQuery = dom.searchInput.value.trim().toLowerCase();
     scheduleFullRender();
   });
+
+  dom.sourceFilterGroup.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-source-filter]");
+    if (!button) {
+      return;
+    }
+
+    setSourceFilter(button.dataset.sourceFilter);
+  });
+
+  const onReloadClick = async () => {
+    const response = await sendMessage({ type: "reload-tracked-tab" });
+    if (response && response.ok) {
+      syncActiveTabLabel();
+    }
+  };
+
+  dom.reloadTabBtn.addEventListener("click", onReloadClick);
+  dom.reloadTabBtnSources.addEventListener("click", onReloadClick);
 
   dom.clearLogsBtn.addEventListener("click", () => {
     sendMessage({ type: "clear-logs" });
@@ -161,6 +191,7 @@ async function requestInitialState() {
 
   syncSettingsUi();
   syncFilterUi();
+  syncSourceFilterUi();
   fullRender();
   updateSummaryUi();
 }
@@ -409,6 +440,23 @@ function syncFilterUi() {
   }
 }
 
+function setSourceFilter(filterKey) {
+  if (!SOURCE_FILTER_KEYS.has(filterKey)) {
+    return;
+  }
+
+  state.sourceFilter = filterKey;
+  syncSourceFilterUi();
+  scheduleSourceRender();
+}
+
+function syncSourceFilterUi() {
+  const chips = dom.sourceFilterGroup.querySelectorAll(".source-filter-chip");
+  for (const chip of chips) {
+    chip.classList.toggle("is-active", chip.dataset.sourceFilter === state.sourceFilter);
+  }
+}
+
 function matchesAllFilters(entry) {
   if (!entry || typeof entry !== "object") {
     return false;
@@ -607,23 +655,21 @@ function updateSourceListUi() {
 
       uniqueSources.set(candidate, {
         type: normalizeType(entry.type),
-        statusCode: Number(entry.statusCode)
+        statusCode: Number(entry.statusCode),
+        category: getSourceCategory(entry, candidate)
       });
-
-      if (uniqueSources.size >= 200) {
-        break;
-      }
-    }
-
-    if (uniqueSources.size >= 200) {
-      break;
     }
   }
 
-  dom.sourcesCount.textContent = formatInteger(uniqueSources.size);
+  const allSourceEntries = Array.from(uniqueSources.entries());
+  const filteredEntries = allSourceEntries
+    .filter(([, metadata]) => state.sourceFilter === "all" || metadata.category === state.sourceFilter)
+    .slice(0, 200);
+
+  dom.sourcesCount.textContent = `${formatInteger(filteredEntries.length)} / ${formatInteger(allSourceEntries.length)}`;
   dom.sourceList.textContent = "";
 
-  if (uniqueSources.size === 0) {
+  if (allSourceEntries.length === 0) {
     const empty = document.createElement("div");
     empty.className = "source-empty";
     empty.textContent = "No source links captured yet.";
@@ -631,8 +677,16 @@ function updateSourceListUi() {
     return;
   }
 
+  if (filteredEntries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "source-empty";
+    empty.textContent = "No source links for the selected filter.";
+    dom.sourceList.appendChild(empty);
+    return;
+  }
+
   const fragment = document.createDocumentFragment();
-  for (const [url, metadata] of uniqueSources.entries()) {
+  for (const [url, metadata] of filteredEntries) {
     const item = document.createElement("div");
     item.className = "source-item";
 
@@ -643,7 +697,7 @@ function updateSourceListUi() {
     const statusText = Number.isFinite(metadata.statusCode) && metadata.statusCode > 0
       ? String(metadata.statusCode)
       : "-";
-    meta.textContent = `${metadata.type} | status ${statusText}`;
+    meta.textContent = `${metadata.type} | ${metadata.category} | status ${statusText}`;
 
     item.append(link, meta);
     fragment.appendChild(item);
@@ -762,6 +816,46 @@ function isLikelyVideoUrl(url) {
   }
 
   return /\.(mp4|m4v|webm|mov|mkv|avi|m3u8|mpd|ts)(\?|#|$)/i.test(source);
+}
+
+function getUrlExtension(url) {
+  if (!isHttpUrl(url)) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const path = String(parsed.pathname || "");
+    const lastSlash = path.lastIndexOf("/");
+    const fileName = lastSlash >= 0 ? path.slice(lastSlash + 1) : path;
+    const lastDot = fileName.lastIndexOf(".");
+    if (lastDot < 0 || lastDot === fileName.length - 1) {
+      return "";
+    }
+
+    return fileName.slice(lastDot + 1).toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function getSourceCategory(entry, url) {
+  const normalizedType = normalizeType(entry.type);
+  const ext = getUrlExtension(url);
+
+  if (normalizedType === "script" || SCRIPT_FILE_EXTENSIONS.has(ext)) {
+    return "js";
+  }
+
+  if (normalizedType === "image" || IMAGE_FILE_EXTENSIONS.has(ext)) {
+    return "image";
+  }
+
+  if (normalizedType === "media" || normalizedType === "video" || VIDEO_FILE_EXTENSIONS.has(ext) || isLikelyVideoUrl(url)) {
+    return "video";
+  }
+
+  return "other";
 }
 
 function normalizeType(type) {
