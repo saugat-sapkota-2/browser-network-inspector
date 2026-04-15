@@ -1,4 +1,4 @@
-const TYPE_FILTER_KEYS = new Set(["xhrfetch", "images", "scripts", "documents"]);
+const TYPE_FILTER_KEYS = new Set(["xhrfetch", "images", "media", "scripts", "documents"]);
 
 const state = {
   allLogs: [],
@@ -25,6 +25,7 @@ const state = {
   pendingEntries: [],
   flushTimer: null,
   rerenderTimer: null,
+  sourceRenderTimer: null,
   renderedRows: new Map()
 };
 
@@ -43,6 +44,8 @@ const dom = {
   clearLogsBtn: null,
   exportJsonBtn: null,
   exportCsvBtn: null,
+  sourceList: null,
+  sourcesCount: null,
   logRows: null,
   emptyState: null
 };
@@ -71,6 +74,8 @@ function bindDom() {
   dom.clearLogsBtn = document.getElementById("clearLogsBtn");
   dom.exportJsonBtn = document.getElementById("exportJsonBtn");
   dom.exportCsvBtn = document.getElementById("exportCsvBtn");
+  dom.sourceList = document.getElementById("sourceList");
+  dom.sourcesCount = document.getElementById("sourcesCount");
   dom.logRows = document.getElementById("logRows");
   dom.emptyState = document.getElementById("emptyState");
 }
@@ -242,6 +247,7 @@ function flushPendingEntries() {
   if (state.rerenderTimer !== null) {
     drainPendingEntriesIntoState();
     updateSummaryUi();
+    scheduleSourceRender();
     return;
   }
 
@@ -268,6 +274,7 @@ function flushPendingEntries() {
 
   updateEmptyState();
   updateSummaryUi();
+  scheduleSourceRender();
 }
 
 function drainPendingEntriesIntoState() {
@@ -304,8 +311,14 @@ function clearLocalLogs() {
     state.flushTimer = null;
   }
 
+  if (state.sourceRenderTimer !== null) {
+    clearTimeout(state.sourceRenderTimer);
+    state.sourceRenderTimer = null;
+  }
+
   dom.logRows.textContent = "";
   updateEmptyState();
+  updateSourceListUi();
 }
 
 function fullRender() {
@@ -331,6 +344,7 @@ function fullRender() {
 
   dom.logRows.appendChild(fragment);
   updateEmptyState();
+  updateSourceListUi();
 }
 
 function scheduleFullRender() {
@@ -414,6 +428,14 @@ function matchesAllFilters(entry) {
         typeMatched = true;
       }
 
+      if (key === "media" && (normalizedType === "media" || normalizedType === "video")) {
+        typeMatched = true;
+      }
+
+      if (key === "media" && isLikelyVideoUrl(entry.url)) {
+        typeMatched = true;
+      }
+
       if (key === "scripts" && normalizedType === "script") {
         typeMatched = true;
       }
@@ -466,13 +488,30 @@ function createLogRow(entry) {
 
   const urlMain = document.createElement("div");
   urlMain.className = "url-main";
-  urlMain.textContent = truncate(entry.url || "", 110);
+  if (isHttpUrl(entry.url)) {
+    const urlLink = createResourceLink(entry.url, truncate(entry.url || "", 110));
+    urlMain.appendChild(urlLink);
+  } else {
+    urlMain.textContent = truncate(entry.url || "", 110);
+  }
 
   const urlMeta = document.createElement("div");
   urlMeta.className = "url-meta";
   urlMeta.textContent = `${entry.domain || "-"}  |  req ${formatBytes(entry.requestSize)}  /  res ${formatBytes(entry.responseSize)}`;
 
   urlCell.append(urlMain, urlMeta);
+
+  const sourceCell = document.createElement("td");
+  sourceCell.className = "source-cell";
+  sourceCell.title = String(entry.sourceUrl || "");
+
+  if (isHttpUrl(entry.sourceUrl)) {
+    const sourceLink = createResourceLink(entry.sourceUrl, truncate(entry.sourceUrl, 82));
+    sourceCell.appendChild(sourceLink);
+  } else {
+    sourceCell.textContent = "-";
+    sourceCell.classList.add("status-info");
+  }
 
   const statusCell = document.createElement("td");
   const statusCode = Number(entry.statusCode);
@@ -510,7 +549,7 @@ function createLogRow(entry) {
     latencyCell.textContent = "-";
   }
 
-  row.append(methodCell, urlCell, statusCell, typeCell, timeCell, latencyCell);
+  row.append(methodCell, urlCell, sourceCell, statusCell, typeCell, timeCell, latencyCell);
   return row;
 }
 
@@ -540,6 +579,79 @@ function updateEmptyState() {
   dom.emptyState.classList.toggle("hidden", hasRows);
 }
 
+function scheduleSourceRender() {
+  if (state.sourceRenderTimer !== null) {
+    return;
+  }
+
+  state.sourceRenderTimer = setTimeout(() => {
+    state.sourceRenderTimer = null;
+    updateSourceListUi();
+  }, 120);
+}
+
+function updateSourceListUi() {
+  const uniqueSources = new Map();
+
+  for (let index = state.allLogs.length - 1; index >= 0; index -= 1) {
+    const entry = state.allLogs[index];
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const candidates = [entry.url, entry.sourceUrl];
+    for (const candidate of candidates) {
+      if (!isHttpUrl(candidate) || uniqueSources.has(candidate)) {
+        continue;
+      }
+
+      uniqueSources.set(candidate, {
+        type: normalizeType(entry.type),
+        statusCode: Number(entry.statusCode)
+      });
+
+      if (uniqueSources.size >= 200) {
+        break;
+      }
+    }
+
+    if (uniqueSources.size >= 200) {
+      break;
+    }
+  }
+
+  dom.sourcesCount.textContent = formatInteger(uniqueSources.size);
+  dom.sourceList.textContent = "";
+
+  if (uniqueSources.size === 0) {
+    const empty = document.createElement("div");
+    empty.className = "source-empty";
+    empty.textContent = "No source links captured yet.";
+    dom.sourceList.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const [url, metadata] of uniqueSources.entries()) {
+    const item = document.createElement("div");
+    item.className = "source-item";
+
+    const link = createResourceLink(url, truncate(url, 86));
+    const meta = document.createElement("div");
+    meta.className = "url-meta";
+
+    const statusText = Number.isFinite(metadata.statusCode) && metadata.statusCode > 0
+      ? String(metadata.statusCode)
+      : "-";
+    meta.textContent = `${metadata.type} | status ${statusText}`;
+
+    item.append(link, meta);
+    fragment.appendChild(item);
+  }
+
+  dom.sourceList.appendChild(fragment);
+}
+
 function exportLogs(kind) {
   const logsToExport = state.allLogs.filter((entry) => matchesAllFilters(entry));
 
@@ -559,6 +671,7 @@ function exportLogs(kind) {
     "timestamp",
     "method",
     "url",
+    "sourceUrl",
     "statusCode",
     "type",
     "latencyMs",
@@ -575,6 +688,7 @@ function exportLogs(kind) {
       formatTime(entry.timestamp),
       entry.method || "",
       entry.url || "",
+      entry.sourceUrl || "",
       Number.isFinite(entry.statusCode) ? entry.statusCode : "",
       normalizeType(entry.type),
       Number.isFinite(entry.latency) ? entry.latency : "",
@@ -615,6 +729,39 @@ function toCsvField(value) {
   }
 
   return `"${normalized.replaceAll("\"", "\"\"")}"`;
+}
+
+function isHttpUrl(url) {
+  if (typeof url !== "string" || url.length === 0) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function createResourceLink(url, label) {
+  const anchor = document.createElement("a");
+  anchor.className = "resource-link";
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  anchor.title = url;
+  anchor.textContent = label;
+  return anchor;
+}
+
+function isLikelyVideoUrl(url) {
+  const source = String(url || "").toLowerCase();
+  if (source.length === 0) {
+    return false;
+  }
+
+  return /\.(mp4|m4v|webm|mov|mkv|avi|m3u8|mpd|ts)(\?|#|$)/i.test(source);
 }
 
 function normalizeType(type) {
@@ -725,17 +872,16 @@ function computeSummary(logs) {
 
 async function syncActiveTabLabel() {
   try {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-
-    if (!Array.isArray(tabs) || tabs.length === 0) {
-      dom.activeTabLabel.textContent = "No active tab selected";
+    const stateSnapshot = await sendMessage({ type: "get-state" });
+    if (!stateSnapshot || !Number.isInteger(stateSnapshot.activeTabId) || stateSnapshot.activeTabId < 0) {
+      dom.activeTabLabel.textContent = "No monitored tab selected";
       return;
     }
 
-    const [tab] = tabs;
+    const tab = await chrome.tabs.get(stateSnapshot.activeTabId);
     const title = truncate(tab.title || "Untitled tab", 56);
-    dom.activeTabLabel.textContent = `${title} (tab ${tab.id})`;
+    dom.activeTabLabel.textContent = `Tracking: ${title} (tab ${tab.id})`;
   } catch {
-    dom.activeTabLabel.textContent = "Unable to resolve active tab";
+    dom.activeTabLabel.textContent = "Unable to resolve monitored tab";
   }
 }

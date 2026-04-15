@@ -214,6 +214,63 @@ function pickSourceUrl(...candidates) {
   return null;
 }
 
+function isInternalBrowserUrl(url) {
+  const source = String(url || "").toLowerCase();
+  return (
+    source.startsWith("chrome://") ||
+    source.startsWith("brave://") ||
+    source.startsWith("edge://") ||
+    source.startsWith("devtools://") ||
+    source.startsWith("about:")
+  );
+}
+
+function isMonitorTab(tab) {
+  if (!tab || typeof tab !== "object") {
+    return false;
+  }
+
+  if (Number.isInteger(state.viewerWindowId) && tab.windowId === state.viewerWindowId) {
+    return true;
+  }
+
+  const tabUrl = String(tab.url || "");
+  return tabUrl.startsWith(chrome.runtime.getURL(""));
+}
+
+function isTrackableTab(tab) {
+  if (!tab || typeof tab !== "object" || !Number.isInteger(tab.id)) {
+    return false;
+  }
+
+  if (isMonitorTab(tab)) {
+    return false;
+  }
+
+  const tabUrl = String(tab.url || "");
+  if (tabUrl.startsWith("chrome-extension://") || isInternalBrowserUrl(tabUrl)) {
+    return false;
+  }
+
+  // Allow unknown/empty URLs and regular web URLs.
+  return true;
+}
+
+async function findTrackableActiveTab(preferredTab) {
+  if (isTrackableTab(preferredTab)) {
+    return preferredTab;
+  }
+
+  const activeTabs = await chrome.tabs.query({ active: true });
+  for (const tab of activeTabs) {
+    if (isTrackableTab(tab)) {
+      return tab;
+    }
+  }
+
+  return null;
+}
+
 async function openMonitorWindow() {
   const monitorUrl = chrome.runtime.getURL(MONITOR_WINDOW_PATH);
 
@@ -352,10 +409,21 @@ function setActiveTab(tabId, reason) {
 async function refreshActiveTab() {
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const activeTabId = tabs.length > 0 && Number.isInteger(tabs[0].id) ? tabs[0].id : -1;
-    setActiveTab(activeTabId, "active-tab-context-changed");
+    const preferredTab = tabs.length > 0 ? tabs[0] : null;
+    const targetTab = await findTrackableActiveTab(preferredTab);
+
+    if (targetTab && Number.isInteger(targetTab.id)) {
+      setActiveTab(targetTab.id, "active-tab-context-changed");
+      return;
+    }
+
+    if (state.activeTabId === -1) {
+      setActiveTab(-1, "active-tab-context-missing");
+    }
   } catch {
-    setActiveTab(-1, "active-tab-context-missing");
+    if (state.activeTabId === -1) {
+      setActiveTab(-1, "active-tab-context-missing");
+    }
   }
 }
 
@@ -563,8 +631,17 @@ chrome.action.onClicked.addListener(() => {
   openMonitorWindow();
 });
 
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  setActiveTab(activeInfo.tabId, "active-tab-switched");
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (!isTrackableTab(tab)) {
+      return;
+    }
+
+    setActiveTab(activeInfo.tabId, "active-tab-switched");
+  } catch {
+    // Ignore activation races for tabs that no longer exist.
+  }
 });
 
 chrome.windows.onFocusChanged.addListener(() => {
