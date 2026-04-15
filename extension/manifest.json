@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Network Monitor Lite",
+  "description": "Lightweight real-time network monitor for the active tab.",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "tabs",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Network Monitor Lite",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

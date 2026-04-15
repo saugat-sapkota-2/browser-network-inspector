@@ -1,0 +1,524 @@
+const STORAGE_KEY = "nml_state_v1";
+const SLOW_THRESHOLD_MS = 500;
+
+const DEFAULT_SETTINGS = Object.freeze({
+  autoClearOnPopupClose: false,
+  paused: false,
+  maxLogs: 500
+});
+
+const MAX_PENDING_REQUEST_AGE_MS = 120000;
+const REQUEST_ID_CLEANUP_BATCH = 200;
+
+const encoder = new TextEncoder();
+
+const state = {
+  activeTabId: -1,
+  logs: [],
+  summary: createEmptySummary(),
+  settings: { ...DEFAULT_SETTINGS },
+  pendingRequests: new Map(),
+  requestSizes: new Map(),
+  responseSizes: new Map(),
+  persistTimer: null
+};
+
+function createEmptySummary() {
+  return {
+    total: 0,
+    success: 0,
+    errors: 0,
+    avgLatency: 0,
+    totalData: 0
+  };
+}
+
+function computeSummary(logs) {
+  let success = 0;
+  let errors = 0;
+  let latencyTotal = 0;
+  let latencyCount = 0;
+  let totalData = 0;
+
+  for (const entry of logs) {
+    const statusCode = Number(entry.statusCode);
+    if (statusCode >= 200 && statusCode <= 299) {
+      success += 1;
+    }
+
+    if (statusCode >= 400 || entry.error) {
+      errors += 1;
+    }
+
+    if (Number.isFinite(entry.latency)) {
+      latencyTotal += entry.latency;
+      latencyCount += 1;
+    }
+
+    if (Number.isFinite(entry.requestSize)) {
+      totalData += entry.requestSize;
+    }
+
+    if (Number.isFinite(entry.responseSize)) {
+      totalData += entry.responseSize;
+    }
+  }
+
+  return {
+    total: logs.length,
+    success,
+    errors,
+    avgLatency: latencyCount > 0 ? latencyTotal / latencyCount : 0,
+    totalData
+  };
+}
+
+function sanitizeLogs(logs, maxLogs) {
+  if (!Array.isArray(logs)) {
+    return [];
+  }
+
+  const sanitized = logs
+    .filter((entry) => entry && typeof entry === "object")
+    .slice(-maxLogs)
+    .map((entry) => ({ ...entry }));
+
+  return sanitized;
+}
+
+function sanitizeSettings(maybeSettings) {
+  const safe = { ...DEFAULT_SETTINGS };
+  if (!maybeSettings || typeof maybeSettings !== "object") {
+    return safe;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(maybeSettings, "autoClearOnPopupClose")) {
+    safe.autoClearOnPopupClose = Boolean(maybeSettings.autoClearOnPopupClose);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(maybeSettings, "paused")) {
+    safe.paused = Boolean(maybeSettings.paused);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(maybeSettings, "maxLogs")) {
+    const maxLogs = Number(maybeSettings.maxLogs);
+    if (Number.isFinite(maxLogs)) {
+      safe.maxLogs = Math.max(100, Math.min(2000, Math.round(maxLogs)));
+    }
+  }
+
+  return safe;
+}
+
+function normalizeResourceType(type) {
+  if (type === "xmlhttprequest") {
+    return "xhr";
+  }
+
+  if (type === "main_frame" || type === "sub_frame") {
+    return "document";
+  }
+
+  return type;
+}
+
+function estimateRequestBodySize(requestBody) {
+  if (!requestBody || typeof requestBody !== "object") {
+    return null;
+  }
+
+  if (Array.isArray(requestBody.raw) && requestBody.raw.length > 0) {
+    let total = 0;
+
+    for (const chunk of requestBody.raw) {
+      if (chunk && chunk.bytes) {
+        total += chunk.bytes.byteLength;
+      }
+    }
+
+    return total > 0 ? total : null;
+  }
+
+  if (requestBody.formData && typeof requestBody.formData === "object") {
+    let total = 0;
+
+    for (const [key, values] of Object.entries(requestBody.formData)) {
+      total += encoder.encode(String(key)).byteLength;
+
+      if (Array.isArray(values)) {
+        for (const value of values) {
+          total += encoder.encode(String(value)).byteLength;
+        }
+      }
+    }
+
+    return total > 0 ? total : null;
+  }
+
+  return null;
+}
+
+function extractContentLength(responseHeaders) {
+  if (!Array.isArray(responseHeaders)) {
+    return null;
+  }
+
+  for (const header of responseHeaders) {
+    if (!header || typeof header !== "object") {
+      continue;
+    }
+
+    if (String(header.name || "").toLowerCase() === "content-length") {
+      const parsed = Number(header.value);
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getDomain(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function notifyPopup(message) {
+  try {
+    chrome.runtime.sendMessage(message, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch {
+    // Ignore send failures when popup is closed.
+  }
+}
+
+function persistStateSoon() {
+  if (state.persistTimer !== null) {
+    return;
+  }
+
+  state.persistTimer = setTimeout(() => {
+    state.persistTimer = null;
+    chrome.storage.local.set({
+      [STORAGE_KEY]: {
+        activeTabId: state.activeTabId,
+        logs: state.logs,
+        summary: state.summary,
+        settings: state.settings,
+        savedAt: Date.now()
+      }
+    });
+  }, 250);
+}
+
+function clearRuntimeRequestBuffers() {
+  state.pendingRequests.clear();
+  state.requestSizes.clear();
+  state.responseSizes.clear();
+}
+
+function clearLogs(reason, options = {}) {
+  const shouldResetPending = Boolean(options.resetPending);
+
+  state.logs = [];
+  state.summary = createEmptySummary();
+
+  if (shouldResetPending) {
+    clearRuntimeRequestBuffers();
+  }
+
+  persistStateSoon();
+
+  notifyPopup({
+    type: "network-logs-cleared",
+    reason,
+    summary: state.summary
+  });
+}
+
+function enforceLogLimit() {
+  const maxLogs = state.settings.maxLogs;
+  if (state.logs.length <= maxLogs) {
+    return;
+  }
+
+  state.logs.splice(0, state.logs.length - maxLogs);
+}
+
+function addLogEntry(entry) {
+  state.logs.push(entry);
+  enforceLogLimit();
+  state.summary = computeSummary(state.logs);
+
+  persistStateSoon();
+
+  notifyPopup({
+    type: "network-log-added",
+    entry,
+    summary: state.summary,
+    maxLogs: state.settings.maxLogs,
+    slowThresholdMs: SLOW_THRESHOLD_MS
+  });
+}
+
+function setActiveTab(tabId, reason) {
+  const safeTabId = Number.isInteger(tabId) ? tabId : -1;
+
+  if (safeTabId === state.activeTabId) {
+    return;
+  }
+
+  state.activeTabId = safeTabId;
+  clearLogs(reason, { resetPending: true });
+  persistStateSoon();
+
+  notifyPopup({
+    type: "active-tab-updated",
+    activeTabId: state.activeTabId
+  });
+}
+
+async function refreshActiveTab() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeTabId = tabs.length > 0 && Number.isInteger(tabs[0].id) ? tabs[0].id : -1;
+    setActiveTab(activeTabId, "active-tab-context-changed");
+  } catch {
+    setActiveTab(-1, "active-tab-context-missing");
+  }
+}
+
+function isTrackedRequest(details) {
+  return Number.isInteger(details.tabId) && details.tabId >= 0 && details.tabId === state.activeTabId;
+}
+
+function cleanupStalePendingRequests(now) {
+  if (state.pendingRequests.size === 0) {
+    return;
+  }
+
+  let inspected = 0;
+  for (const [requestId, pending] of state.pendingRequests.entries()) {
+    inspected += 1;
+
+    if (now - pending.startTime > MAX_PENDING_REQUEST_AGE_MS) {
+      state.pendingRequests.delete(requestId);
+      state.requestSizes.delete(requestId);
+      state.responseSizes.delete(requestId);
+    }
+
+    if (inspected >= REQUEST_ID_CLEANUP_BATCH) {
+      break;
+    }
+  }
+}
+
+function onBeforeRequest(details) {
+  if (state.settings.paused) {
+    return;
+  }
+
+  if (!isTrackedRequest(details)) {
+    return;
+  }
+
+  cleanupStalePendingRequests(details.timeStamp);
+
+  const requestSize = estimateRequestBodySize(details.requestBody);
+  if (Number.isFinite(requestSize)) {
+    state.requestSizes.set(details.requestId, requestSize);
+  }
+
+  state.pendingRequests.set(details.requestId, {
+    requestId: details.requestId,
+    tabId: details.tabId,
+    url: details.url,
+    method: details.method,
+    type: normalizeResourceType(details.type),
+    startTime: details.timeStamp,
+    startedAt: Date.now()
+  });
+}
+
+function onHeadersReceived(details) {
+  if (!state.pendingRequests.has(details.requestId)) {
+    return;
+  }
+
+  const responseSize = extractContentLength(details.responseHeaders);
+  if (Number.isFinite(responseSize)) {
+    state.responseSizes.set(details.requestId, responseSize);
+  }
+}
+
+function finalizeRequest(details, isError) {
+  const pending = state.pendingRequests.get(details.requestId);
+  if (!pending) {
+    return;
+  }
+
+  state.pendingRequests.delete(details.requestId);
+
+  const responseSize = state.responseSizes.get(details.requestId);
+  const requestSize = state.requestSizes.get(details.requestId);
+
+  state.responseSizes.delete(details.requestId);
+  state.requestSizes.delete(details.requestId);
+
+  const latency =
+    Number.isFinite(details.timeStamp) && Number.isFinite(pending.startTime)
+      ? Math.max(0, Math.round(details.timeStamp - pending.startTime))
+      : null;
+
+  addLogEntry({
+    id: `${details.requestId}:${pending.startTime}`,
+    requestId: details.requestId,
+    tabId: pending.tabId,
+    url: pending.url,
+    domain: getDomain(pending.url),
+    method: pending.method,
+    statusCode: isError ? 0 : details.statusCode,
+    type: pending.type,
+    timestamp: pending.startTime,
+    completedAt: details.timeStamp,
+    latency,
+    requestSize: Number.isFinite(requestSize) ? requestSize : null,
+    responseSize: Number.isFinite(responseSize) ? responseSize : null,
+    fromCache: Boolean(details.fromCache),
+    error: isError ? details.error || "REQUEST_FAILED" : null
+  });
+}
+
+function onCompleted(details) {
+  finalizeRequest(details, false);
+}
+
+function onErrorOccurred(details) {
+  finalizeRequest(details, true);
+}
+
+function onTabUpdated(tabId, changeInfo) {
+  if (tabId !== state.activeTabId) {
+    return;
+  }
+
+  if (changeInfo.status === "loading") {
+    clearLogs("active-tab-refresh", { resetPending: true });
+  }
+}
+
+function updateSetting(key, value) {
+  if (key === "autoClearOnPopupClose") {
+    state.settings.autoClearOnPopupClose = Boolean(value);
+  } else if (key === "paused") {
+    state.settings.paused = Boolean(value);
+  } else if (key === "maxLogs") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      state.settings.maxLogs = Math.max(100, Math.min(2000, Math.round(parsed)));
+      enforceLogLimit();
+      state.summary = computeSummary(state.logs);
+    }
+  }
+
+  persistStateSoon();
+
+  notifyPopup({
+    type: "settings-updated",
+    settings: state.settings
+  });
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+
+  if (message.type === "get-state") {
+    sendResponse({
+      activeTabId: state.activeTabId,
+      logs: state.logs,
+      summary: state.summary,
+      settings: state.settings,
+      slowThresholdMs: SLOW_THRESHOLD_MS
+    });
+    return false;
+  }
+
+  if (message.type === "clear-logs") {
+    clearLogs("manual-clear", { resetPending: true });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === "set-setting") {
+    updateSetting(message.key, message.value);
+    sendResponse({ ok: true, settings: state.settings });
+    return false;
+  }
+
+  if (message.type === "popup-closed") {
+    if (state.settings.autoClearOnPopupClose) {
+      clearLogs("popup-closed", { resetPending: true });
+    }
+
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  return false;
+});
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  setActiveTab(activeInfo.tabId, "active-tab-switched");
+});
+
+chrome.windows.onFocusChanged.addListener(() => {
+  refreshActiveTab();
+});
+
+chrome.tabs.onUpdated.addListener(onTabUpdated);
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === state.activeTabId) {
+    setActiveTab(-1, "active-tab-closed");
+    refreshActiveTab();
+  }
+});
+
+chrome.webRequest.onBeforeRequest.addListener(
+  onBeforeRequest,
+  { urls: ["<all_urls>"] },
+  ["requestBody"]
+);
+
+chrome.webRequest.onHeadersReceived.addListener(
+  onHeadersReceived,
+  { urls: ["<all_urls>"] },
+  ["responseHeaders"]
+);
+
+chrome.webRequest.onCompleted.addListener(onCompleted, { urls: ["<all_urls>"] });
+chrome.webRequest.onErrorOccurred.addListener(onErrorOccurred, { urls: ["<all_urls>"] });
+
+(async function init() {
+  const stored = await chrome.storage.local.get(STORAGE_KEY);
+  const savedState = stored[STORAGE_KEY];
+
+  if (savedState && typeof savedState === "object") {
+    state.settings = sanitizeSettings(savedState.settings);
+    state.logs = sanitizeLogs(savedState.logs, state.settings.maxLogs);
+    state.summary = computeSummary(state.logs);
+
+    if (Number.isInteger(savedState.activeTabId)) {
+      state.activeTabId = savedState.activeTabId;
+    }
+  }
+
+  await refreshActiveTab();
+})();

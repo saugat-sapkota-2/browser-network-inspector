@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Monitor Lite</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1>Network Monitor Lite</h1>
+        <p class="subtitle" id="activeTabLabel">Active tab only</p>
+      </div>
+      <div class="topbar-right">
+        <span class="capture-pill" id="captureState">Live capture</span>
+        <label class="switch-row" for="pauseToggle">
+          <input type="checkbox" id="pauseToggle">
+          <span>Pause</span>
+        </label>
+        <label class="switch-row" for="autoClearToggle">
+          <input type="checkbox" id="autoClearToggle">
+          <span>Clear on popup close</span>
+        </label>
+      </div>
+    </header>
+
+    <section class="stats-panel">
+      <article class="stat-card">
+        <h2>Total Requests</h2>
+        <p id="statTotal">0</p>
+      </article>
+      <article class="stat-card success-card">
+        <h2>Success (2xx)</h2>
+        <p id="statSuccess">0</p>
+      </article>
+      <article class="stat-card error-card">
+        <h2>Errors (4xx/5xx)</h2>
+        <p id="statErrors">0</p>
+      </article>
+      <article class="stat-card">
+        <h2>Avg Response Time</h2>
+        <p id="statAvgLatency">0 ms</p>
+      </article>
+      <article class="stat-card">
+        <h2>Total Data</h2>
+        <p id="statTotalData">0 B</p>
+      </article>
+    </section>
+
+    <section class="controls">
+      <input
+        id="searchInput"
+        type="search"
+        placeholder="Search URL or domain..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <div class="filter-group" id="filterGroup">
+        <button class="filter-chip is-active" data-filter="all">All Requests</button>
+        <button class="filter-chip" data-filter="xhrfetch">XHR / Fetch</button>
+        <button class="filter-chip" data-filter="images">Images</button>
+        <button class="filter-chip" data-filter="scripts">Scripts</button>
+        <button class="filter-chip" data-filter="documents">Documents</button>
+        <button class="filter-chip" data-filter="errors">Errors Only</button>
+        <button class="filter-chip" data-filter="slow">Slow (&gt;500ms)</button>
+      </div>
+
+      <div class="action-group">
+        <button id="clearLogsBtn" class="ghost-btn">Clear Logs</button>
+        <button id="exportJsonBtn" class="ghost-btn">Export JSON</button>
+        <button id="exportCsvBtn" class="ghost-btn">Export CSV</button>
+      </div>
+    </section>
+
+    <section class="table-shell" aria-live="polite">
+      <table>
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>URL</th>
+            <th>Status</th>
+            <th>Type</th>
+            <th>Time</th>
+            <th>Latency</th>
+          </tr>
+        </thead>
+        <tbody id="logRows"></tbody>
+      </table>
+      <div id="emptyState" class="empty-state">No network activity captured yet.</div>
+    </section>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>
