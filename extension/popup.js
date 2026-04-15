@@ -969,13 +969,19 @@ async function syncActiveTabLabel() {
     const stateSnapshot = await sendMessage({ type: "get-state" });
     if (!stateSnapshot || !Number.isInteger(stateSnapshot.activeTabId) || stateSnapshot.activeTabId < 0) {
       dom.activeTabLabel.textContent = "No monitored tab selected";
+      dom.activeTabLabel.title = "";
       return;
     }
 
     const tab = await chrome.tabs.get(stateSnapshot.activeTabId);
     const title = truncate(tab.title || "Untitled tab", 56);
-    dom.activeTabLabel.textContent = `Tracking: ${title} (tab ${tab.id})`;
+    const url = isHttpUrl(tab.url) ? truncate(tab.url, 92) : "No URL";
+    dom.activeTabLabel.textContent = `Tracking: ${title} | ${url}`;
+    dom.activeTabLabel.title = isHttpUrl(tab.url)
+      ? `${tab.title || "Untitled tab"}\n${tab.url}`
+      : title;
   } catch {
     dom.activeTabLabel.textContent = "Unable to resolve monitored tab";
+    dom.activeTabLabel.title = "";
   }
 }

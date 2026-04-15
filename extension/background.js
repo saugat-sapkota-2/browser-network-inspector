@@ -465,6 +465,21 @@ async function refreshActiveTab() {
   }
 }
 
+async function ensureTrackedTabReady() {
+  if (!Number.isInteger(state.activeTabId) || state.activeTabId < 0) {
+    return;
+  }
+
+  try {
+    const trackedTab = await chrome.tabs.get(state.activeTabId);
+    if (!isTrackableTab(trackedTab)) {
+      setActiveTab(-1, "tracked-tab-invalid");
+    }
+  } catch {
+    setActiveTab(-1, "tracked-tab-missing");
+  }
+}
+
 function isTrackedRequest(details) {
   return Number.isInteger(details.tabId) && details.tabId >= 0 && details.tabId === state.activeTabId;
 }
@@ -672,25 +687,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-chrome.action.onClicked.addListener(() => {
-  openMonitorWindow();
-});
-
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  try {
-    const tab = await chrome.tabs.get(activeInfo.tabId);
-    if (!isTrackableTab(tab)) {
-      return;
-    }
-
-    setActiveTab(activeInfo.tabId, "active-tab-switched");
-  } catch {
-    // Ignore activation races for tabs that no longer exist.
+chrome.action.onClicked.addListener(async (tab) => {
+  if (isTrackableTab(tab) && Number.isInteger(tab.id)) {
+    setActiveTab(tab.id, "monitor-opened-from-tab");
+  } else {
+    await refreshActiveTab();
   }
-});
 
-chrome.windows.onFocusChanged.addListener(() => {
-  refreshActiveTab();
+  openMonitorWindow();
 });
 
 chrome.windows.onRemoved.addListener((windowId) => {
@@ -702,11 +706,12 @@ chrome.windows.onRemoved.addListener((windowId) => {
 chrome.tabs.onUpdated.addListener(onTabUpdated);
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  if (tabId === state.activeTabId) {
-    closeMonitorWindow();
-    setActiveTab(-1, "active-tab-closed");
-    refreshActiveTab();
+  if (tabId !== state.activeTabId) {
+    return;
   }
+
+  closeMonitorWindow();
+  setActiveTab(-1, "active-tab-closed");
 });
 
 chrome.webRequest.onBeforeRequest.addListener(
@@ -738,5 +743,5 @@ chrome.webRequest.onErrorOccurred.addListener(onErrorOccurred, { urls: ["<all_ur
     }
   }
 
-  await refreshActiveTab();
+  await ensureTrackedTabReady();
 })();
