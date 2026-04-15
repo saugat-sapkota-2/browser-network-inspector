@@ -1,5 +1,8 @@
 const STORAGE_KEY = "nml_state_v1";
 const SLOW_THRESHOLD_MS = 500;
+const MONITOR_WINDOW_PATH = "popup.html";
+const MONITOR_WINDOW_WIDTH = 1180;
+const MONITOR_WINDOW_HEIGHT = 860;
 
 const DEFAULT_SETTINGS = Object.freeze({
   autoClearOnPopupClose: false,
@@ -17,6 +20,7 @@ const state = {
   logs: [],
   summary: createEmptySummary(),
   settings: { ...DEFAULT_SETTINGS },
+  viewerWindowId: null,
   pendingRequests: new Map(),
   requestSizes: new Map(),
   responseSizes: new Map(),
@@ -187,6 +191,68 @@ function getDomain(url) {
   }
 }
 
+function isHttpUrl(url) {
+  if (typeof url !== "string" || url.length === 0) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function pickSourceUrl(...candidates) {
+  for (const candidate of candidates) {
+    if (isHttpUrl(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function openMonitorWindow() {
+  const monitorUrl = chrome.runtime.getURL(MONITOR_WINDOW_PATH);
+
+  if (Number.isInteger(state.viewerWindowId)) {
+    try {
+      await chrome.windows.update(state.viewerWindowId, {
+        focused: true,
+        drawAttention: true
+      });
+      return;
+    } catch {
+      state.viewerWindowId = null;
+    }
+  }
+
+  try {
+    const created = await chrome.windows.create({
+      url: monitorUrl,
+      type: "popup",
+      width: MONITOR_WINDOW_WIDTH,
+      height: MONITOR_WINDOW_HEIGHT,
+      focused: true
+    });
+
+    if (Number.isInteger(created?.id)) {
+      state.viewerWindowId = created.id;
+    }
+  } catch {
+    const fallbackTab = await chrome.tabs.create({
+      url: monitorUrl,
+      active: true
+    });
+
+    if (Number.isInteger(fallbackTab?.windowId)) {
+      state.viewerWindowId = fallbackTab.windowId;
+    }
+  }
+}
+
 function notifyPopup(message) {
   try {
     chrome.runtime.sendMessage(message, () => {
@@ -340,6 +406,9 @@ function onBeforeRequest(details) {
     url: details.url,
     method: details.method,
     type: normalizeResourceType(details.type),
+    initiator: details.initiator || null,
+    originUrl: details.originUrl || null,
+    documentUrl: details.documentUrl || null,
     startTime: details.timeStamp,
     startedAt: Date.now()
   });
@@ -375,11 +444,21 @@ function finalizeRequest(details, isError) {
       ? Math.max(0, Math.round(details.timeStamp - pending.startTime))
       : null;
 
+  const sourceUrl = pickSourceUrl(
+    details.initiator,
+    details.originUrl,
+    details.documentUrl,
+    pending.initiator,
+    pending.originUrl,
+    pending.documentUrl
+  );
+
   addLogEntry({
     id: `${details.requestId}:${pending.startTime}`,
     requestId: details.requestId,
     tabId: pending.tabId,
     url: pending.url,
+    sourceUrl,
     domain: getDomain(pending.url),
     method: pending.method,
     statusCode: isError ? 0 : details.statusCode,
@@ -471,7 +550,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === "open-monitor-window") {
+    openMonitorWindow();
+    sendResponse({ ok: true });
+    return false;
+  }
+
   return false;
+});
+
+chrome.action.onClicked.addListener(() => {
+  openMonitorWindow();
 });
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -480,6 +569,12 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
 
 chrome.windows.onFocusChanged.addListener(() => {
   refreshActiveTab();
+});
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (windowId === state.viewerWindowId) {
+    state.viewerWindowId = null;
+  }
 });
 
 chrome.tabs.onUpdated.addListener(onTabUpdated);

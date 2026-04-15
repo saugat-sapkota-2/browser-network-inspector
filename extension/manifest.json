@@ -15,8 +15,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Network Monitor Lite",
-    "default_popup": "popup.html"
+    "default_title": "Open Network Monitor Lite"
   },
   "icons": {
     "16": "icon.png",

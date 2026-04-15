@@ -11,7 +11,7 @@
     <header class="topbar">
       <div>
         <h1>Network Monitor Lite</h1>
-        <p class="subtitle" id="activeTabLabel">Active tab only</p>
+        <p class="subtitle" id="activeTabLabel">Active tab only - monitor window</p>
       </div>
       <div class="topbar-right">
         <span class="capture-pill" id="captureState">Live capture</span>
@@ -21,7 +21,7 @@
         </label>
         <label class="switch-row" for="autoClearToggle">
           <input type="checkbox" id="autoClearToggle">
-          <span>Clear on popup close</span>
+          <span>Clear on window close</span>
         </label>
       </div>
     </header>
@@ -62,6 +62,7 @@
         <button class="filter-chip is-active" data-filter="all">All Requests</button>
         <button class="filter-chip" data-filter="xhrfetch">XHR / Fetch</button>
         <button class="filter-chip" data-filter="images">Images</button>
+        <button class="filter-chip" data-filter="media">Media / Video</button>
         <button class="filter-chip" data-filter="scripts">Scripts</button>
         <button class="filter-chip" data-filter="documents">Documents</button>
         <button class="filter-chip" data-filter="errors">Errors Only</button>
@@ -75,12 +76,21 @@
       </div>
     </section>
 
+    <section class="sources-shell" aria-live="polite">
+      <div class="sources-head">
+        <h2>Captured Source Links</h2>
+        <span id="sourcesCount">0</span>
+      </div>
+      <div id="sourceList" class="source-list"></div>
+    </section>
+
     <section class="table-shell" aria-live="polite">
       <table>
         <thead>
           <tr>
             <th>Method</th>
             <th>URL</th>
+            <th>Source</th>
             <th>Status</th>
             <th>Type</th>
             <th>Time</th>
