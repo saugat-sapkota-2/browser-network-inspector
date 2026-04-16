@@ -12,9 +12,11 @@ Built with focus on real-world debugging speed, clean UX, and practical monitori
 
 ## Preview
 
-![Network Monitor Lite Preview 1](image.png)
+All preview screenshots are stored in the `previews/` folder.
 
-![Network Monitor Lite Preview 2](image-1776268422876.png)
+![Network Monitor Lite Dashboard](previews/image.png)
+
+![Network Monitor Lite AI Analysis Panel](previews/image-1776268422876.png)
 
 ## Key Features
 
@@ -50,6 +52,12 @@ Built with focus on real-world debugging speed, clean UX, and practical monitori
   - Export filtered results to JSON or CSV
   - Pause/resume capture
   - Optional auto-clear when monitor window closes
+- AI Network Analyzer panel:
+  - Analyze Network action from the header
+  - Re-Analyze button directly inside analysis panel
+  - Deep Scan mode for richer endpoint-level diagnostics (error rate, p95 latency, hotspots)
+  - Auto Refresh mode to re-run analysis when new requests arrive
+  - Transparent performance scoring with penalty breakdown (slow/errors/duplicates)
 
 ## Tab Ownership Behavior
 
@@ -68,6 +76,9 @@ extension/
   popup.css       # UI styles
   popup.js        # UI rendering, filters, exports, interactions
   icon.png        # Extension icon
+previews/
+  image.png
+  image-1776268422876.png
 README.md
 ```
 

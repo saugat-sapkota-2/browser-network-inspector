@@ -58,11 +58,25 @@
       </article>
     </section>
 
-    <section class="analysis-shell" aria-live="polite">
+    <div id="analysisBackdrop" class="analysis-backdrop hidden" aria-hidden="true"></div>
+
+    <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
       <div class="analysis-head">
         <div>
           <h2>AI Analysis Panel</h2>
           <p id="analysisMeta" class="analysis-meta">Run Analyze Network to generate actionable insights.</p>
+        </div>
+        <div class="analysis-head-actions">
+          <button id="reAnalyzeBtn" class="primary-btn analysis-action-btn" type="button">Re-Analyze</button>
+          <label class="switch-row analysis-switch" for="deepAnalysisToggle">
+            <input type="checkbox" id="deepAnalysisToggle" checked>
+            <span id="deepAnalysisLabel">Deep Scan ON</span>
+          </label>
+          <label class="switch-row analysis-switch" for="autoReAnalyzeToggle">
+            <input type="checkbox" id="autoReAnalyzeToggle" checked>
+            <span id="autoReAnalyzeLabel">Auto Refresh ON</span>
+          </label>
+          <button id="closeAnalysisBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close AI analysis panel">Close</button>
         </div>
       </div>
 
@@ -71,6 +85,7 @@
         <div class="analysis-score-track" aria-hidden="true">
           <span id="analysisScoreBar" class="analysis-score-bar"></span>
         </div>
+        <p id="analysisScoreDetail" class="analysis-score-detail">Penalties: slow 0, errors 0, duplicates 0.</p>
       </div>
 
       <div class="analysis-summary-grid">

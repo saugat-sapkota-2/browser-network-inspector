@@ -6,6 +6,9 @@ const VIDEO_FILE_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi"
 const ANALYSIS_SLOW_THRESHOLD_MS = 1000;
 const ANALYSIS_DUPLICATE_LIMIT = 3;
 const MAX_INSIGHT_ITEMS_PER_GROUP = 3;
+const MIN_SCORE_BAR_WIDTH = 6;
+const AUTO_REANALYZE_DELAY_MS = 600;
+const BENIGN_ERROR_MARKERS = ["ERR_ABORTED", "NS_BINDING_ABORTED", "ERR_BLOCKED_BY_CLIENT"];
 
 const state = {
   targetTabId: null,
@@ -36,10 +39,14 @@ const state = {
   sourceRenderTimer: null,
   sourceFilter: "all",
   renderedRows: new Map(),
+  autoReanalyzeTimer: null,
   analysis: {
     aiMode: true,
+    deepMode: true,
+    autoRefresh: true,
     result: null,
-    stale: false
+    stale: false,
+    isOpen: false
   }
 };
 
@@ -57,8 +64,17 @@ const dom = {
   statAvgLatency: null,
   statTotalData: null,
   analysisMeta: null,
+  analysisPanel: null,
+  analysisBackdrop: null,
+  reAnalyzeBtn: null,
+  deepAnalysisToggle: null,
+  deepAnalysisLabel: null,
+  autoReAnalyzeToggle: null,
+  autoReAnalyzeLabel: null,
+  closeAnalysisBtn: null,
   analysisScoreCard: null,
   analysisScore: null,
+  analysisScoreDetail: null,
   analysisScoreBar: null,
   analysisTotalRequests: null,
   analysisErrorCount: null,
@@ -124,8 +140,17 @@ function bindDom() {
   dom.statAvgLatency = document.getElementById("statAvgLatency");
   dom.statTotalData = document.getElementById("statTotalData");
   dom.analysisMeta = document.getElementById("analysisMeta");
+  dom.analysisPanel = document.getElementById("analysisPanel");
+  dom.analysisBackdrop = document.getElementById("analysisBackdrop");
+  dom.reAnalyzeBtn = document.getElementById("reAnalyzeBtn");
+  dom.deepAnalysisToggle = document.getElementById("deepAnalysisToggle");
+  dom.deepAnalysisLabel = document.getElementById("deepAnalysisLabel");
+  dom.autoReAnalyzeToggle = document.getElementById("autoReAnalyzeToggle");
+  dom.autoReAnalyzeLabel = document.getElementById("autoReAnalyzeLabel");
+  dom.closeAnalysisBtn = document.getElementById("closeAnalysisBtn");
   dom.analysisScoreCard = document.getElementById("analysisScoreCard");
   dom.analysisScore = document.getElementById("analysisScore");
+  dom.analysisScoreDetail = document.getElementById("analysisScoreDetail");
   dom.analysisScoreBar = document.getElementById("analysisScoreBar");
   dom.analysisTotalRequests = document.getElementById("analysisTotalRequests");
   dom.analysisErrorCount = document.getElementById("analysisErrorCount");
@@ -185,6 +210,49 @@ function bindEvents() {
 
   dom.analyzeNetworkBtn.addEventListener("click", () => {
     runNetworkAnalysis();
+    openAnalysisPanel();
+  });
+
+  dom.reAnalyzeBtn.addEventListener("click", () => {
+    runNetworkAnalysis();
+    openAnalysisPanel();
+  });
+
+  dom.deepAnalysisToggle.addEventListener("change", () => {
+    state.analysis.deepMode = Boolean(dom.deepAnalysisToggle.checked);
+    syncDeepModeUi();
+
+    if (state.analysis.result) {
+      renderAnalysisResult(state.analysis.result);
+    }
+  });
+
+  dom.autoReAnalyzeToggle.addEventListener("change", () => {
+    state.analysis.autoRefresh = Boolean(dom.autoReAnalyzeToggle.checked);
+    syncAutoRefreshUi();
+
+    if (!state.analysis.autoRefresh) {
+      clearAutoReanalyzeTimer();
+      return;
+    }
+
+    if (state.analysis.stale && state.analysis.isOpen) {
+      scheduleAutoReanalyze();
+    }
+  });
+
+  dom.closeAnalysisBtn.addEventListener("click", () => {
+    closeAnalysisPanel();
+  });
+
+  dom.analysisBackdrop.addEventListener("click", () => {
+    closeAnalysisPanel();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.analysis.isOpen) {
+      closeAnalysisPanel();
+    }
   });
 
   dom.aiModeToggle.addEventListener("change", () => {
@@ -274,8 +342,11 @@ async function requestInitialState() {
 
   syncSettingsUi();
   syncAiModeUi();
+  syncDeepModeUi();
+  syncAutoRefreshUi();
   syncFilterUi();
   syncSourceFilterUi();
+  closeAnalysisPanel();
   resetAnalysisPanel("Run Analyze Network to generate actionable insights.");
   fullRender();
   updateSummaryUi();
@@ -449,6 +520,9 @@ function clearLocalLogs() {
   state.renderedRows.clear();
   state.analysis.result = null;
   state.analysis.stale = false;
+  clearAutoReanalyzeTimer();
+  setReAnalyzeAttention(false);
+  closeAnalysisPanel();
 
   if (state.flushTimer !== null) {
     clearTimeout(state.flushTimer);
@@ -741,16 +815,33 @@ function syncAiModeUi() {
   dom.aiModeLabel.textContent = state.analysis.aiMode ? "AI Mode ON" : "AI Mode OFF";
 }
 
+function syncDeepModeUi() {
+  dom.deepAnalysisToggle.checked = Boolean(state.analysis.deepMode);
+  dom.deepAnalysisLabel.textContent = state.analysis.deepMode ? "Deep Scan ON" : "Deep Scan OFF";
+}
+
+function syncAutoRefreshUi() {
+  dom.autoReAnalyzeToggle.checked = Boolean(state.analysis.autoRefresh);
+  dom.autoReAnalyzeLabel.textContent = state.analysis.autoRefresh ? "Auto Refresh ON" : "Auto Refresh OFF";
+}
+
 function markAnalysisStale() {
   if (!state.analysis.result || state.analysis.stale) {
     return;
   }
 
   state.analysis.stale = true;
-  dom.analysisMeta.textContent = "New requests captured. Re-run Analyze Network to refresh insights.";
+  dom.analysisMeta.textContent = buildAnalysisMeta(state.analysis.result, { stale: true });
+  setReAnalyzeAttention(true);
+
+  if (state.analysis.autoRefresh && state.analysis.isOpen) {
+    scheduleAutoReanalyze();
+  }
 }
 
 function runNetworkAnalysis() {
+  clearAutoReanalyzeTimer();
+
   if (state.flushTimer !== null) {
     clearTimeout(state.flushTimer);
     state.flushTimer = null;
@@ -770,12 +861,72 @@ function runNetworkAnalysis() {
   renderAnalysisResult(analysis);
 }
 
+function setReAnalyzeAttention(enabled) {
+  dom.reAnalyzeBtn.classList.toggle("is-attention", Boolean(enabled));
+}
+
+function clearAutoReanalyzeTimer() {
+  if (state.autoReanalyzeTimer === null) {
+    return;
+  }
+
+  clearTimeout(state.autoReanalyzeTimer);
+  state.autoReanalyzeTimer = null;
+}
+
+function scheduleAutoReanalyze() {
+  if (!state.analysis.autoRefresh || !state.analysis.isOpen) {
+    return;
+  }
+
+  clearAutoReanalyzeTimer();
+  state.autoReanalyzeTimer = setTimeout(() => {
+    state.autoReanalyzeTimer = null;
+
+    if (!state.analysis.autoRefresh || !state.analysis.isOpen || !state.analysis.stale) {
+      return;
+    }
+
+    runNetworkAnalysis();
+  }, AUTO_REANALYZE_DELAY_MS);
+}
+
+function openAnalysisPanel() {
+  state.analysis.isOpen = true;
+  dom.analysisPanel.classList.remove("hidden");
+  dom.analysisBackdrop.classList.remove("hidden");
+  dom.analysisPanel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("analysis-open");
+
+  if (state.analysis.stale && state.analysis.autoRefresh) {
+    scheduleAutoReanalyze();
+  }
+
+  dom.closeAnalysisBtn.focus();
+}
+
+function closeAnalysisPanel() {
+  state.analysis.isOpen = false;
+  clearAutoReanalyzeTimer();
+  dom.analysisPanel.classList.add("hidden");
+  dom.analysisBackdrop.classList.add("hidden");
+  dom.analysisPanel.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("analysis-open");
+}
+
 function analyzeNetworkLogs(logs) {
   const safeLogs = Array.isArray(logs) ? logs : [];
   const slowRequests = [];
   const failedRequests = [];
+  const ignoredFailures = [];
   const urlHits = new Map();
   const failedStatusHistogram = new Map();
+  const ignoredStatusHistogram = new Map();
+  const domainHits = new Map();
+  const endpointKeys = new Set();
+  const slowEndpointBuckets = new Map();
+  const failedEndpointBuckets = new Map();
+  const latencyValues = [];
 
   let latencyTotal = 0;
   let latencyCount = 0;
@@ -790,22 +941,65 @@ function analyzeNetworkLogs(logs) {
     const statusCode = Number(entry.statusCode);
     const latencyMs = getEntryLatencyMs(entry);
     const resourceType = normalizeType(entry.resourceType || entry.type);
+    const domain = String(entry.domain || getDomain(url) || "");
+    const errorMessage = String(entry.error || "");
+    const endpointKey = getEndpointKey(url);
+    const endpointLabel = getEndpointLabel(url);
+
+    if (domain.length > 0) {
+      domainHits.set(domain, (domainHits.get(domain) || 0) + 1);
+    }
+
+    endpointKeys.add(endpointKey);
 
     if (url.length > 0) {
       urlHits.set(url, (urlHits.get(url) || 0) + 1);
     }
 
-    if (Number.isFinite(statusCode) && statusCode >= 400) {
-      failedRequests.push({ url, method, statusCode, resourceType });
-      failedStatusHistogram.set(statusCode, (failedStatusHistogram.get(statusCode) || 0) + 1);
+    if ((Number.isFinite(statusCode) && statusCode >= 400) || errorMessage.length > 0) {
+      const failureInfo = classifyFailure(statusCode, errorMessage);
+      const failureCode = failureInfo.code;
+
+      if (failureInfo.actionable) {
+        failedRequests.push({
+          url,
+          method,
+          statusCode: Number.isFinite(statusCode) ? statusCode : 0,
+          resourceType,
+          errorMessage
+        });
+
+        failedStatusHistogram.set(failureCode, (failedStatusHistogram.get(failureCode) || 0) + 1);
+
+        const failureBucket = getOrCreateFailedEndpointBucket(failedEndpointBuckets, endpointKey, endpointLabel);
+        failureBucket.count += 1;
+        failureBucket.statuses.set(failureCode, (failureBucket.statuses.get(failureCode) || 0) + 1);
+      } else {
+        ignoredFailures.push({
+          url,
+          method,
+          statusCode: Number.isFinite(statusCode) ? statusCode : 0,
+          resourceType,
+          errorMessage,
+          reason: failureInfo.reason
+        });
+
+        ignoredStatusHistogram.set(failureCode, (ignoredStatusHistogram.get(failureCode) || 0) + 1);
+      }
     }
 
     if (Number.isFinite(latencyMs)) {
       latencyTotal += latencyMs;
       latencyCount += 1;
+      latencyValues.push(latencyMs);
 
       if (latencyMs > ANALYSIS_SLOW_THRESHOLD_MS) {
         slowRequests.push({ url, method, statusCode, latencyMs, resourceType });
+
+        const slowBucket = getOrCreateSlowEndpointBucket(slowEndpointBuckets, endpointKey, endpointLabel);
+        slowBucket.count += 1;
+        slowBucket.maxLatencyMs = Math.max(slowBucket.maxLatencyMs, latencyMs);
+        slowBucket.totalLatencyMs += latencyMs;
       }
     }
   }
@@ -822,23 +1016,63 @@ function analyzeNetworkLogs(logs) {
 
   const totalRequests = safeLogs.length;
   const errorCount = failedRequests.length;
+  const ignoredFailureCount = ignoredFailures.length;
+  const totalFailureCount = errorCount + ignoredFailureCount;
   const avgResponseTimeMs = latencyCount > 0 ? latencyTotal / latencyCount : 0;
+  const primaryDomain = getPrimaryDomain(domainHits);
+  const endpointCount = endpointKeys.size;
+  const errorRate = totalRequests > 0 ? errorCount / totalRequests : 0;
+  const latencyP95Ms = calculatePercentile(latencyValues, 95);
+  const slowEndpointInsights = Array.from(slowEndpointBuckets.values())
+    .map((bucket) => ({
+      endpoint: bucket.endpoint,
+      count: bucket.count,
+      maxLatencyMs: bucket.maxLatencyMs,
+      avgLatencyMs: bucket.count > 0 ? bucket.totalLatencyMs / bucket.count : 0
+    }))
+    .sort((left, right) => right.maxLatencyMs - left.maxLatencyMs);
+
+  const failedEndpointInsights = Array.from(failedEndpointBuckets.values())
+    .map((bucket) => ({
+      endpoint: bucket.endpoint,
+      count: bucket.count,
+      statuses: bucket.statuses
+    }))
+    .sort((left, right) => right.count - left.count);
+
+  const penaltySlow = slowRequests.length * 10;
+  const penaltyErrors = errorCount * 15;
+  const penaltyDuplicates = duplicateClusters.length * 5;
 
   const rawScore =
     100 -
-    slowRequests.length * 10 -
-    errorCount * 15 -
-    duplicateClusters.length * 5;
+    penaltySlow -
+    penaltyErrors -
+    penaltyDuplicates;
 
   return {
     generatedAt: Date.now(),
     totalRequests,
     errorCount,
+    totalFailureCount,
+    ignoredFailureCount,
+    errorRate,
     avgResponseTimeMs,
+    latencyP95Ms,
+    primaryDomain,
+    endpointCount,
     slowRequests,
+    slowEndpointInsights,
     failedRequests,
+    failedEndpointInsights,
+    ignoredFailures,
     duplicateClusters,
     failedStatusHistogram,
+    ignoredStatusHistogram,
+    penaltySlow,
+    penaltyErrors,
+    penaltyDuplicates,
+    totalPenalty: penaltySlow + penaltyErrors + penaltyDuplicates,
     score: clampScore(rawScore)
   };
 }
@@ -851,7 +1085,12 @@ function renderAnalysisResult(analysis) {
   dom.analysisDuplicateCount.textContent = formatInteger(analysis.duplicateClusters.length);
 
   dom.analysisScore.textContent = `Performance Score: ${analysis.score}/100`;
-  dom.analysisScoreBar.style.width = `${analysis.score}%`;
+  const scoreBarWidth = analysis.totalRequests > 0 ? Math.max(MIN_SCORE_BAR_WIDTH, analysis.score) : 0;
+  dom.analysisScoreBar.style.width = `${scoreBarWidth}%`;
+  dom.analysisScoreDetail.textContent =
+    `Penalties: slow ${analysis.penaltySlow}, errors ${analysis.penaltyErrors}, duplicates ${analysis.penaltyDuplicates}` +
+    (analysis.ignoredFailureCount > 0 ? ` | ignored benign failures ${analysis.ignoredFailureCount}` : "") +
+    ".";
 
   dom.analysisScoreCard.classList.remove("is-good", "is-warning", "is-error");
   if (analysis.score >= 80) {
@@ -862,9 +1101,8 @@ function renderAnalysisResult(analysis) {
     dom.analysisScoreCard.classList.add("is-error");
   }
 
-  const analyzedAt = formatTime(analysis.generatedAt);
-  const aiModeStatus = state.analysis.aiMode ? "AI Mode ON" : "AI Mode OFF";
-  dom.analysisMeta.textContent = `Analyzed ${formatInteger(analysis.totalRequests)} requests at ${analyzedAt} (${aiModeStatus}).`;
+  dom.analysisMeta.textContent = buildAnalysisMeta(analysis, { stale: false });
+  setReAnalyzeAttention(false);
 
   const insights = buildInsights(analysis, state.analysis.aiMode);
   renderInsightList(insights);
@@ -872,12 +1110,26 @@ function renderAnalysisResult(analysis) {
 
 function buildInsights(analysis, aiModeEnabled) {
   const insights = [];
+  const scopeLabel = getAnalysisScopeLabel(analysis);
+  const deepModeEnabled = Boolean(state.analysis.deepMode);
 
-  for (const slowRequest of analysis.slowRequests.slice(0, MAX_INSIGHT_ITEMS_PER_GROUP)) {
-    const endpoint = getEndpointLabel(slowRequest.url);
+  if (deepModeEnabled) {
+    const errorRatePct = formatPercent(analysis.errorRate);
+    const p95Text = Number.isFinite(analysis.latencyP95Ms) ? `${Math.round(analysis.latencyP95Ms)} ms` : "n/a";
+    const failureContext = analysis.ignoredFailureCount > 0
+      ? `, actionable failures ${formatInteger(analysis.errorCount)} (ignored ${formatInteger(analysis.ignoredFailureCount)} benign)`
+      : `, failures ${formatInteger(analysis.errorCount)}`;
+
+    insights.push({
+      severity: analysis.errorRate >= 0.2 ? "warning" : "good",
+      text: `Deep Scan: ${formatInteger(analysis.endpointCount)} endpoints${failureContext}, actionable error rate ${errorRatePct}, p95 latency ${p95Text} ${scopeLabel}.`
+    });
+  }
+
+  for (const slowEndpoint of analysis.slowEndpointInsights.slice(0, MAX_INSIGHT_ITEMS_PER_GROUP)) {
     insights.push({
       severity: "warning",
-      text: `${slowRequest.method} ${endpoint} is slow (${formatInsightLatency(slowRequest.latencyMs)}).`
+      text: `${slowEndpoint.endpoint} is slow (${slowEndpoint.count} hits, max ${formatInsightLatency(slowEndpoint.maxLatencyMs)}, avg ${Math.round(slowEndpoint.avgLatencyMs)}ms).`
     });
   }
 
@@ -891,7 +1143,21 @@ function buildInsights(analysis, aiModeEnabled) {
   if (analysis.errorCount > 0) {
     insights.push({
       severity: "error",
-      text: `${analysis.errorCount} failed requests detected (${formatStatusHistogram(analysis.failedStatusHistogram)}).`
+      text: `${analysis.errorCount} actionable failed requests detected ${scopeLabel} (${formatStatusHistogram(analysis.failedStatusHistogram)}).`
+    });
+
+    for (const failedEndpoint of analysis.failedEndpointInsights.slice(0, 2)) {
+      insights.push({
+        severity: "error",
+        text: `Failure hotspot: ${failedEndpoint.endpoint} failed ${failedEndpoint.count} times (${formatStatusHistogram(failedEndpoint.statuses)}).`
+      });
+    }
+  }
+
+  if (analysis.ignoredFailureCount > 0) {
+    insights.push({
+      severity: "good",
+      text: `${analysis.ignoredFailureCount} aborted/blocked requests were detected ${scopeLabel} and excluded from scoring (${formatStatusHistogram(analysis.ignoredStatusHistogram)}).`
     });
   }
 
@@ -905,7 +1171,7 @@ function buildInsights(analysis, aiModeEnabled) {
   if (analysis.avgResponseTimeMs >= 800) {
     insights.push({
       severity: "warning",
-      text: `Average response time is high (${Math.round(analysis.avgResponseTimeMs)} ms).`
+      text: `Average response time is high ${scopeLabel} (${Math.round(analysis.avgResponseTimeMs)} ms).`
     });
   }
 
@@ -917,7 +1183,7 @@ function buildInsights(analysis, aiModeEnabled) {
   ) {
     insights.push({
       severity: "good",
-      text: "Network traffic looks healthy with no major bottlenecks detected."
+      text: `Network traffic ${scopeLabel} looks healthy (${formatInteger(analysis.totalRequests)} requests across ${formatInteger(analysis.endpointCount)} endpoints).`
     });
   }
 
@@ -943,25 +1209,30 @@ function buildInsights(analysis, aiModeEnabled) {
 }
 
 function appendAiRecommendations(insights, analysis) {
+  const scopeLabel = getAnalysisScopeLabel(analysis);
+
   if (analysis.duplicateClusters.length > 0) {
     const hottestCluster = analysis.duplicateClusters[0];
     insights.push({
       severity: "warning",
-      text: `Recommendation: Consider caching or debouncing calls to ${getEndpointLabel(hottestCluster.url)}.`
+      text: `Recommendation: Consider caching or debouncing calls to ${getEndpointLabel(hottestCluster.url)} ${scopeLabel}.`
     });
   }
 
   if (analysis.slowRequests.length > 0) {
+    const worstSlowEndpoint = analysis.slowEndpointInsights[0];
+    const endpointHint = worstSlowEndpoint ? ` Focus on ${worstSlowEndpoint.endpoint} first.` : "";
+
     insights.push({
       severity: "warning",
-      text: "Optimization tip: Profile server endpoints and reduce payload size for high-latency requests."
+      text: `Optimization tip: Profile server endpoints and reduce payload size for high-latency requests ${scopeLabel}.${endpointHint}`
     });
   }
 
   if (analysis.errorCount > 0) {
     insights.push({
       severity: "error",
-      text: "Recommendation: Investigate recurring 4xx/5xx responses and add retries only where safe."
+      text: `Recommendation: Investigate recurring 4xx/5xx or ERR failures ${scopeLabel}, and add retries only where safe.`
     });
   }
 
@@ -973,7 +1244,7 @@ function appendAiRecommendations(insights, analysis) {
   ) {
     insights.push({
       severity: "good",
-      text: "Recommendation: Current API behavior is stable; maintain this baseline in future releases."
+      text: `Recommendation: Current API behavior ${scopeLabel} is stable; maintain this baseline in future releases.`
     });
   }
 }
@@ -1018,7 +1289,9 @@ function resetAnalysisPanel(message) {
   dom.analysisDuplicateCount.textContent = "0";
   dom.analysisScore.textContent = "Performance Score: --/100";
   dom.analysisScoreBar.style.width = "0%";
+  dom.analysisScoreDetail.textContent = "Penalties: slow 0, errors 0, duplicates 0.";
   dom.analysisScoreCard.classList.remove("is-good", "is-warning", "is-error");
+  setReAnalyzeAttention(false);
 
   dom.analysisInsights.textContent = "";
   const empty = document.createElement("li");
@@ -1046,6 +1319,117 @@ function clampScore(score) {
   }
 
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function buildAnalysisMeta(analysis, options = {}) {
+  const stale = Boolean(options.stale);
+  const analyzedAt = formatTime(analysis.generatedAt);
+  const aiModeStatus = state.analysis.aiMode ? "AI Mode ON" : "AI Mode OFF";
+  const deepModeStatus = state.analysis.deepMode ? "Deep Scan ON" : "Deep Scan OFF";
+  const autoStatus = state.analysis.autoRefresh ? "Auto Refresh ON" : "Auto Refresh OFF";
+  const scope = analysis.primaryDomain ? ` for ${analysis.primaryDomain}` : "";
+
+  if (stale) {
+    return `New requests captured ${scope}. Showing previous analysis from ${analyzedAt}. Click Re-Analyze to refresh (${aiModeStatus}, ${deepModeStatus}, ${autoStatus}).`;
+  }
+
+  return `Analyzed ${formatInteger(analysis.totalRequests)} requests${scope} at ${analyzedAt} (${aiModeStatus}, ${deepModeStatus}, ${autoStatus}).`;
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) {
+    return "0%";
+  }
+
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function calculatePercentile(values, percentile) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return null;
+  }
+
+  const sorted = values
+    .filter((value) => Number.isFinite(value))
+    .slice()
+    .sort((left, right) => left - right);
+
+  if (sorted.length === 0) {
+    return null;
+  }
+
+  const safePercentile = Math.max(0, Math.min(100, Number(percentile)));
+  const index = Math.ceil((safePercentile / 100) * sorted.length) - 1;
+  const safeIndex = Math.max(0, Math.min(sorted.length - 1, index));
+  return sorted[safeIndex];
+}
+
+function classifyFailure(statusCode, errorMessage) {
+  if (Number.isFinite(statusCode) && statusCode >= 400) {
+    return {
+      actionable: true,
+      code: String(statusCode),
+      reason: "http"
+    };
+  }
+
+  const normalizedError = String(errorMessage || "").toUpperCase();
+  if (normalizedError.length === 0) {
+    return {
+      actionable: false,
+      code: "ERR",
+      reason: "unknown"
+    };
+  }
+
+  for (const marker of BENIGN_ERROR_MARKERS) {
+    if (normalizedError.includes(marker)) {
+      return {
+        actionable: false,
+        code: marker,
+        reason: "benign"
+      };
+    }
+  }
+
+  return {
+    actionable: true,
+    code: "ERR",
+    reason: "network"
+  };
+}
+
+function getOrCreateSlowEndpointBucket(bucketMap, endpointKey, endpointLabel) {
+  let bucket = bucketMap.get(endpointKey);
+  if (bucket) {
+    return bucket;
+  }
+
+  bucket = {
+    endpoint: endpointLabel,
+    count: 0,
+    maxLatencyMs: 0,
+    totalLatencyMs: 0
+  };
+
+  bucketMap.set(endpointKey, bucket);
+  return bucket;
+}
+
+function getOrCreateFailedEndpointBucket(bucketMap, endpointKey, endpointLabel) {
+  let bucket = bucketMap.get(endpointKey);
+  if (bucket) {
+    return bucket;
+  }
+
+  bucket = {
+    endpoint: endpointLabel,
+    count: 0,
+    statuses: new Map()
+  };
+
+  bucketMap.set(endpointKey, bucket);
+  return bucket;
 }
 
 function getEndpointLabel(url) {
@@ -1088,6 +1472,59 @@ function formatStatusHistogram(statusHistogram) {
     .map(([statusCode, count]) => `${statusCode} x${count}`);
 
   return parts.join(", ");
+}
+
+function getPrimaryDomain(domainHits) {
+  if (!(domainHits instanceof Map) || domainHits.size === 0) {
+    return "";
+  }
+
+  let winner = "";
+  let winnerCount = -1;
+
+  for (const [domain, count] of domainHits.entries()) {
+    if (!Number.isFinite(count) || count <= winnerCount) {
+      continue;
+    }
+
+    winner = domain;
+    winnerCount = count;
+  }
+
+  return winner;
+}
+
+function getAnalysisScopeLabel(analysis) {
+  if (analysis.primaryDomain) {
+    return `for ${analysis.primaryDomain}`;
+  }
+
+  return "for this monitored tab";
+}
+
+function getEndpointKey(url) {
+  if (!isHttpUrl(url)) {
+    return String(url || "unknown");
+  }
+
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname || "/"}`;
+  } catch {
+    return String(url || "unknown");
+  }
+}
+
+function getDomain(url) {
+  if (!isHttpUrl(url)) {
+    return "";
+  }
+
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
 }
 
 function getInsightBadge(severity) {
