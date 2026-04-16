@@ -3,6 +3,9 @@ const SOURCE_FILTER_KEYS = new Set(["all", "js", "image", "video", "other"]);
 const SCRIPT_FILE_EXTENSIONS = new Set(["js", "mjs", "cjs"]);
 const IMAGE_FILE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "bmp", "svg", "webp", "avif", "ico", "tif", "tiff"]);
 const VIDEO_FILE_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "flv", "wmv", "ogv", "m3u8", "mpd", "ts"]);
+const ANALYSIS_SLOW_THRESHOLD_MS = 1000;
+const ANALYSIS_DUPLICATE_LIMIT = 3;
+const MAX_INSIGHT_ITEMS_PER_GROUP = 3;
 
 const state = {
   targetTabId: null,
@@ -32,7 +35,12 @@ const state = {
   rerenderTimer: null,
   sourceRenderTimer: null,
   sourceFilter: "all",
-  renderedRows: new Map()
+  renderedRows: new Map(),
+  analysis: {
+    aiMode: true,
+    result: null,
+    stale: false
+  }
 };
 
 const dom = {
@@ -40,11 +48,24 @@ const dom = {
   captureState: null,
   pauseToggle: null,
   autoClearToggle: null,
+  analyzeNetworkBtn: null,
+  aiModeToggle: null,
+  aiModeLabel: null,
   statTotal: null,
   statSuccess: null,
   statErrors: null,
   statAvgLatency: null,
   statTotalData: null,
+  analysisMeta: null,
+  analysisScoreCard: null,
+  analysisScore: null,
+  analysisScoreBar: null,
+  analysisTotalRequests: null,
+  analysisErrorCount: null,
+  analysisAvgResponse: null,
+  analysisSlowCount: null,
+  analysisDuplicateCount: null,
+  analysisInsights: null,
   searchInput: null,
   filterGroup: null,
   sourceFilterGroup: null,
@@ -94,11 +115,24 @@ function bindDom() {
   dom.captureState = document.getElementById("captureState");
   dom.pauseToggle = document.getElementById("pauseToggle");
   dom.autoClearToggle = document.getElementById("autoClearToggle");
+  dom.analyzeNetworkBtn = document.getElementById("analyzeNetworkBtn");
+  dom.aiModeToggle = document.getElementById("aiModeToggle");
+  dom.aiModeLabel = document.getElementById("aiModeLabel");
   dom.statTotal = document.getElementById("statTotal");
   dom.statSuccess = document.getElementById("statSuccess");
   dom.statErrors = document.getElementById("statErrors");
   dom.statAvgLatency = document.getElementById("statAvgLatency");
   dom.statTotalData = document.getElementById("statTotalData");
+  dom.analysisMeta = document.getElementById("analysisMeta");
+  dom.analysisScoreCard = document.getElementById("analysisScoreCard");
+  dom.analysisScore = document.getElementById("analysisScore");
+  dom.analysisScoreBar = document.getElementById("analysisScoreBar");
+  dom.analysisTotalRequests = document.getElementById("analysisTotalRequests");
+  dom.analysisErrorCount = document.getElementById("analysisErrorCount");
+  dom.analysisAvgResponse = document.getElementById("analysisAvgResponse");
+  dom.analysisSlowCount = document.getElementById("analysisSlowCount");
+  dom.analysisDuplicateCount = document.getElementById("analysisDuplicateCount");
+  dom.analysisInsights = document.getElementById("analysisInsights");
   dom.searchInput = document.getElementById("searchInput");
   dom.filterGroup = document.getElementById("filterGroup");
   dom.sourceFilterGroup = document.getElementById("sourceFilterGroup");
@@ -148,6 +182,19 @@ function bindEvents() {
 
   dom.reloadTabBtn.addEventListener("click", onReloadClick);
   dom.reloadTabBtnSources.addEventListener("click", onReloadClick);
+
+  dom.analyzeNetworkBtn.addEventListener("click", () => {
+    runNetworkAnalysis();
+  });
+
+  dom.aiModeToggle.addEventListener("change", () => {
+    state.analysis.aiMode = Boolean(dom.aiModeToggle.checked);
+    syncAiModeUi();
+
+    if (state.analysis.result) {
+      renderAnalysisResult(state.analysis.result);
+    }
+  });
 
   dom.clearLogsBtn.addEventListener("click", () => {
     sendMessage({ type: "clear-logs" });
@@ -226,8 +273,10 @@ async function requestInitialState() {
   state.summary = response.summary && typeof response.summary === "object" ? response.summary : computeSummary(state.allLogs);
 
   syncSettingsUi();
+  syncAiModeUi();
   syncFilterUi();
   syncSourceFilterUi();
+  resetAnalysisPanel("Run Analyze Network to generate actionable insights.");
   fullRender();
   updateSummaryUi();
 }
@@ -258,6 +307,7 @@ function onBackgroundMessage(message) {
     }
 
     queueLogEntry(message.entry);
+    markAnalysisStale();
     return false;
   }
 
@@ -397,6 +447,8 @@ function clearLocalLogs() {
   state.allLogs = [];
   state.pendingEntries = [];
   state.renderedRows.clear();
+  state.analysis.result = null;
+  state.analysis.stale = false;
 
   if (state.flushTimer !== null) {
     clearTimeout(state.flushTimer);
@@ -411,6 +463,7 @@ function clearLocalLogs() {
   dom.logRows.textContent = "";
   updateEmptyState();
   updateSourceListUi();
+  resetAnalysisPanel("No logs available. Capture traffic and run Analyze Network.");
 }
 
 function fullRender() {
@@ -681,6 +734,372 @@ function updateSummaryUi() {
   dom.statErrors.textContent = formatInteger(state.summary.errors);
   dom.statAvgLatency.textContent = `${Math.round(Number(state.summary.avgLatency) || 0)} ms`;
   dom.statTotalData.textContent = formatBytes(state.summary.totalData);
+}
+
+function syncAiModeUi() {
+  dom.aiModeToggle.checked = Boolean(state.analysis.aiMode);
+  dom.aiModeLabel.textContent = state.analysis.aiMode ? "AI Mode ON" : "AI Mode OFF";
+}
+
+function markAnalysisStale() {
+  if (!state.analysis.result || state.analysis.stale) {
+    return;
+  }
+
+  state.analysis.stale = true;
+  dom.analysisMeta.textContent = "New requests captured. Re-run Analyze Network to refresh insights.";
+}
+
+function runNetworkAnalysis() {
+  if (state.flushTimer !== null) {
+    clearTimeout(state.flushTimer);
+    state.flushTimer = null;
+  }
+
+  const hadPendingEntries = state.pendingEntries.length > 0;
+  if (hadPendingEntries) {
+    drainPendingEntriesIntoState();
+    fullRender();
+    state.summary = computeSummary(state.allLogs);
+    updateSummaryUi();
+  }
+
+  const analysis = analyzeNetworkLogs(state.allLogs);
+  state.analysis.result = analysis;
+  state.analysis.stale = false;
+  renderAnalysisResult(analysis);
+}
+
+function analyzeNetworkLogs(logs) {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  const slowRequests = [];
+  const failedRequests = [];
+  const urlHits = new Map();
+  const failedStatusHistogram = new Map();
+
+  let latencyTotal = 0;
+  let latencyCount = 0;
+
+  for (const entry of safeLogs) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const url = String(entry.url || "");
+    const method = String(entry.method || "GET");
+    const statusCode = Number(entry.statusCode);
+    const latencyMs = getEntryLatencyMs(entry);
+    const resourceType = normalizeType(entry.resourceType || entry.type);
+
+    if (url.length > 0) {
+      urlHits.set(url, (urlHits.get(url) || 0) + 1);
+    }
+
+    if (Number.isFinite(statusCode) && statusCode >= 400) {
+      failedRequests.push({ url, method, statusCode, resourceType });
+      failedStatusHistogram.set(statusCode, (failedStatusHistogram.get(statusCode) || 0) + 1);
+    }
+
+    if (Number.isFinite(latencyMs)) {
+      latencyTotal += latencyMs;
+      latencyCount += 1;
+
+      if (latencyMs > ANALYSIS_SLOW_THRESHOLD_MS) {
+        slowRequests.push({ url, method, statusCode, latencyMs, resourceType });
+      }
+    }
+  }
+
+  const duplicateClusters = [];
+  for (const [url, count] of urlHits.entries()) {
+    if (count > ANALYSIS_DUPLICATE_LIMIT) {
+      duplicateClusters.push({ url, count });
+    }
+  }
+
+  duplicateClusters.sort((left, right) => right.count - left.count);
+  slowRequests.sort((left, right) => right.latencyMs - left.latencyMs);
+
+  const totalRequests = safeLogs.length;
+  const errorCount = failedRequests.length;
+  const avgResponseTimeMs = latencyCount > 0 ? latencyTotal / latencyCount : 0;
+
+  const rawScore =
+    100 -
+    slowRequests.length * 10 -
+    errorCount * 15 -
+    duplicateClusters.length * 5;
+
+  return {
+    generatedAt: Date.now(),
+    totalRequests,
+    errorCount,
+    avgResponseTimeMs,
+    slowRequests,
+    failedRequests,
+    duplicateClusters,
+    failedStatusHistogram,
+    score: clampScore(rawScore)
+  };
+}
+
+function renderAnalysisResult(analysis) {
+  dom.analysisTotalRequests.textContent = formatInteger(analysis.totalRequests);
+  dom.analysisErrorCount.textContent = formatInteger(analysis.errorCount);
+  dom.analysisAvgResponse.textContent = `${Math.round(analysis.avgResponseTimeMs)} ms`;
+  dom.analysisSlowCount.textContent = formatInteger(analysis.slowRequests.length);
+  dom.analysisDuplicateCount.textContent = formatInteger(analysis.duplicateClusters.length);
+
+  dom.analysisScore.textContent = `Performance Score: ${analysis.score}/100`;
+  dom.analysisScoreBar.style.width = `${analysis.score}%`;
+
+  dom.analysisScoreCard.classList.remove("is-good", "is-warning", "is-error");
+  if (analysis.score >= 80) {
+    dom.analysisScoreCard.classList.add("is-good");
+  } else if (analysis.score >= 50) {
+    dom.analysisScoreCard.classList.add("is-warning");
+  } else {
+    dom.analysisScoreCard.classList.add("is-error");
+  }
+
+  const analyzedAt = formatTime(analysis.generatedAt);
+  const aiModeStatus = state.analysis.aiMode ? "AI Mode ON" : "AI Mode OFF";
+  dom.analysisMeta.textContent = `Analyzed ${formatInteger(analysis.totalRequests)} requests at ${analyzedAt} (${aiModeStatus}).`;
+
+  const insights = buildInsights(analysis, state.analysis.aiMode);
+  renderInsightList(insights);
+}
+
+function buildInsights(analysis, aiModeEnabled) {
+  const insights = [];
+
+  for (const slowRequest of analysis.slowRequests.slice(0, MAX_INSIGHT_ITEMS_PER_GROUP)) {
+    const endpoint = getEndpointLabel(slowRequest.url);
+    insights.push({
+      severity: "warning",
+      text: `${slowRequest.method} ${endpoint} is slow (${formatInsightLatency(slowRequest.latencyMs)}).`
+    });
+  }
+
+  if (analysis.slowRequests.length > MAX_INSIGHT_ITEMS_PER_GROUP) {
+    insights.push({
+      severity: "warning",
+      text: `${analysis.slowRequests.length} slow requests found above ${ANALYSIS_SLOW_THRESHOLD_MS} ms.`
+    });
+  }
+
+  if (analysis.errorCount > 0) {
+    insights.push({
+      severity: "error",
+      text: `${analysis.errorCount} failed requests detected (${formatStatusHistogram(analysis.failedStatusHistogram)}).`
+    });
+  }
+
+  for (const cluster of analysis.duplicateClusters.slice(0, MAX_INSIGHT_ITEMS_PER_GROUP)) {
+    insights.push({
+      severity: "warning",
+      text: `Repeated calls to ${getEndpointLabel(cluster.url)} detected (${cluster.count} requests, possible optimization).`
+    });
+  }
+
+  if (analysis.avgResponseTimeMs >= 800) {
+    insights.push({
+      severity: "warning",
+      text: `Average response time is high (${Math.round(analysis.avgResponseTimeMs)} ms).`
+    });
+  }
+
+  if (
+    analysis.totalRequests > 0 &&
+    analysis.errorCount === 0 &&
+    analysis.slowRequests.length === 0 &&
+    analysis.duplicateClusters.length === 0
+  ) {
+    insights.push({
+      severity: "good",
+      text: "Network traffic looks healthy with no major bottlenecks detected."
+    });
+  }
+
+  if (aiModeEnabled) {
+    appendAiRecommendations(insights, analysis);
+  }
+
+  if (insights.length === 0) {
+    if (analysis.totalRequests === 0) {
+      insights.push({
+        severity: "warning",
+        text: "No requests captured yet. Reload the tracked tab, then run Analyze Network again."
+      });
+    } else {
+      insights.push({
+        severity: "good",
+        text: "No significant issues detected in the current request sample."
+      });
+    }
+  }
+
+  return insights;
+}
+
+function appendAiRecommendations(insights, analysis) {
+  if (analysis.duplicateClusters.length > 0) {
+    const hottestCluster = analysis.duplicateClusters[0];
+    insights.push({
+      severity: "warning",
+      text: `Recommendation: Consider caching or debouncing calls to ${getEndpointLabel(hottestCluster.url)}.`
+    });
+  }
+
+  if (analysis.slowRequests.length > 0) {
+    insights.push({
+      severity: "warning",
+      text: "Optimization tip: Profile server endpoints and reduce payload size for high-latency requests."
+    });
+  }
+
+  if (analysis.errorCount > 0) {
+    insights.push({
+      severity: "error",
+      text: "Recommendation: Investigate recurring 4xx/5xx responses and add retries only where safe."
+    });
+  }
+
+  if (
+    analysis.totalRequests > 0 &&
+    analysis.errorCount === 0 &&
+    analysis.slowRequests.length === 0 &&
+    analysis.duplicateClusters.length === 0
+  ) {
+    insights.push({
+      severity: "good",
+      text: "Recommendation: Current API behavior is stable; maintain this baseline in future releases."
+    });
+  }
+}
+
+function renderInsightList(insights) {
+  dom.analysisInsights.textContent = "";
+
+  if (!Array.isArray(insights) || insights.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "analysis-empty";
+    empty.textContent = "No insights available.";
+    dom.analysisInsights.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const insight of insights) {
+    const item = document.createElement("li");
+    item.className = `analysis-insight is-${insight.severity}`;
+
+    const badge = document.createElement("span");
+    badge.className = "analysis-insight-badge";
+    badge.textContent = getInsightBadge(insight.severity);
+
+    const text = document.createElement("p");
+    text.textContent = insight.text;
+
+    item.append(badge, text);
+    fragment.appendChild(item);
+  }
+
+  dom.analysisInsights.appendChild(fragment);
+}
+
+function resetAnalysisPanel(message) {
+  dom.analysisMeta.textContent = message;
+  dom.analysisTotalRequests.textContent = "0";
+  dom.analysisErrorCount.textContent = "0";
+  dom.analysisAvgResponse.textContent = "0 ms";
+  dom.analysisSlowCount.textContent = "0";
+  dom.analysisDuplicateCount.textContent = "0";
+  dom.analysisScore.textContent = "Performance Score: --/100";
+  dom.analysisScoreBar.style.width = "0%";
+  dom.analysisScoreCard.classList.remove("is-good", "is-warning", "is-error");
+
+  dom.analysisInsights.textContent = "";
+  const empty = document.createElement("li");
+  empty.className = "analysis-empty";
+  empty.textContent = "No analysis yet. Click Analyze Network.";
+  dom.analysisInsights.appendChild(empty);
+}
+
+function getEntryLatencyMs(entry) {
+  const candidates = [entry?.latency, entry?.responseTime, entry?.responseTimeMs];
+
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function clampScore(score) {
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function getEndpointLabel(url) {
+  if (!isHttpUrl(url)) {
+    return truncate(url || "unknown endpoint", 46);
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname && parsed.pathname !== "/") {
+      return truncate(parsed.pathname, 46);
+    }
+
+    return parsed.hostname;
+  } catch {
+    return truncate(url || "unknown endpoint", 46);
+  }
+}
+
+function formatInsightLatency(latencyMs) {
+  if (!Number.isFinite(latencyMs)) {
+    return "n/a";
+  }
+
+  if (latencyMs >= 1000) {
+    return `${(latencyMs / 1000).toFixed(1)}s`;
+  }
+
+  return `${Math.round(latencyMs)}ms`;
+}
+
+function formatStatusHistogram(statusHistogram) {
+  if (!(statusHistogram instanceof Map) || statusHistogram.size === 0) {
+    return "HTTP errors";
+  }
+
+  const parts = Array.from(statusHistogram.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([statusCode, count]) => `${statusCode} x${count}`);
+
+  return parts.join(", ");
+}
+
+function getInsightBadge(severity) {
+  if (severity === "error") {
+    return "Error";
+  }
+
+  if (severity === "warning") {
+    return "Warning";
+  }
+
+  return "Healthy";
 }
 
 function updateEmptyState() {

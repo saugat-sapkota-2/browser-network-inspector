@@ -224,6 +224,190 @@ h1 {
   color: #8bf0ff;
 }
 
+.primary-btn {
+  border-radius: 999px;
+  border: 1px solid rgba(61, 225, 137, 0.55);
+  background: linear-gradient(120deg, rgba(61, 225, 137, 0.3), rgba(67, 219, 255, 0.22));
+  color: #dfffee;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 255, 207, 0.95);
+  filter: brightness(1.08);
+}
+
+.analysis-shell {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analysis-head h2 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.28px;
+  color: var(--text-muted);
+}
+
+.analysis-meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #b0c6e8;
+}
+
+.analysis-score-card {
+  border-radius: 10px;
+  border: 1px solid rgba(106, 157, 242, 0.32);
+  background: rgba(12, 24, 44, 0.82);
+  padding: 8px 10px;
+}
+
+.analysis-score {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.analysis-score-track {
+  margin-top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(41, 66, 105, 0.58);
+  overflow: hidden;
+}
+
+.analysis-score-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #3de189, #71f1dc);
+  transition: width 0.22s ease-out;
+}
+
+.analysis-score-card.is-warning .analysis-score-bar {
+  background: linear-gradient(120deg, #ffbf60, #ffe48f);
+}
+
+.analysis-score-card.is-error .analysis-score-bar {
+  background: linear-gradient(120deg, #ff6f82, #ff9fa9);
+}
+
+.analysis-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.analysis-summary-item {
+  border-radius: 9px;
+  border: 1px solid rgba(106, 157, 242, 0.22);
+  background: rgba(12, 23, 42, 0.7);
+  padding: 8px;
+}
+
+.analysis-summary-item h3 {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.22px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.analysis-summary-item p {
+  margin: 6px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.analysis-insights {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 170px;
+  overflow: auto;
+}
+
+.analysis-insight {
+  border-radius: 8px;
+  border: 1px solid rgba(106, 157, 242, 0.24);
+  background: rgba(11, 22, 41, 0.72);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.analysis-insight p {
+  margin: 0;
+  font-size: 12px;
+  color: #d7e8ff;
+  line-height: 1.35;
+}
+
+.analysis-insight-badge {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22px;
+  font-weight: 700;
+}
+
+.analysis-insight.is-error {
+  border-color: rgba(255, 111, 130, 0.55);
+  background: rgba(70, 16, 30, 0.42);
+}
+
+.analysis-insight.is-error .analysis-insight-badge {
+  color: #ffd8de;
+  background: rgba(255, 111, 130, 0.24);
+}
+
+.analysis-insight.is-warning {
+  border-color: rgba(255, 197, 110, 0.6);
+  background: rgba(74, 44, 9, 0.4);
+}
+
+.analysis-insight.is-warning .analysis-insight-badge {
+  color: #ffe7be;
+  background: rgba(255, 197, 110, 0.24);
+}
+
+.analysis-insight.is-good {
+  border-color: rgba(61, 225, 137, 0.56);
+  background: rgba(12, 63, 44, 0.35);
+}
+
+.analysis-insight.is-good .analysis-insight-badge {
+  color: #d9ffe9;
+  background: rgba(61, 225, 137, 0.24);
+}
+
+.analysis-empty {
+  border-radius: 8px;
+  border: 1px dashed rgba(104, 159, 247, 0.35);
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .table-shell {
   border: 1px solid var(--panel-border);
   border-radius: 12px;
@@ -453,6 +637,10 @@ tbody tr:hover {
   }
 
   .stats-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

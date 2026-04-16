@@ -18,6 +18,11 @@
         </div>
       </div>
       <div class="topbar-right">
+        <button id="analyzeNetworkBtn" class="primary-btn" type="button">Analyze Network</button>
+        <label class="switch-row" for="aiModeToggle">
+          <input type="checkbox" id="aiModeToggle" checked>
+          <span id="aiModeLabel">AI Mode ON</span>
+        </label>
         <span class="capture-pill" id="captureState">Live capture</span>
         <label class="switch-row" for="pauseToggle">
           <input type="checkbox" id="pauseToggle">
@@ -51,6 +56,49 @@
         <h2>Total Data</h2>
         <p id="statTotalData">0 B</p>
       </article>
+    </section>
+
+    <section class="analysis-shell" aria-live="polite">
+      <div class="analysis-head">
+        <div>
+          <h2>AI Analysis Panel</h2>
+          <p id="analysisMeta" class="analysis-meta">Run Analyze Network to generate actionable insights.</p>
+        </div>
+      </div>
+
+      <div class="analysis-score-card" id="analysisScoreCard">
+        <p id="analysisScore" class="analysis-score">Performance Score: --/100</p>
+        <div class="analysis-score-track" aria-hidden="true">
+          <span id="analysisScoreBar" class="analysis-score-bar"></span>
+        </div>
+      </div>
+
+      <div class="analysis-summary-grid">
+        <article class="analysis-summary-item">
+          <h3>Total Requests</h3>
+          <p id="analysisTotalRequests">0</p>
+        </article>
+        <article class="analysis-summary-item">
+          <h3>Errors</h3>
+          <p id="analysisErrorCount">0</p>
+        </article>
+        <article class="analysis-summary-item">
+          <h3>Avg Response</h3>
+          <p id="analysisAvgResponse">0 ms</p>
+        </article>
+        <article class="analysis-summary-item">
+          <h3>Slow (&gt;1000ms)</h3>
+          <p id="analysisSlowCount">0</p>
+        </article>
+        <article class="analysis-summary-item">
+          <h3>Duplicate Clusters</h3>
+          <p id="analysisDuplicateCount">0</p>
+        </article>
+      </div>
+
+      <ul id="analysisInsights" class="analysis-insights">
+        <li class="analysis-empty">No analysis yet. Click Analyze Network.</li>
+      </ul>
     </section>
 
     <section class="controls">
