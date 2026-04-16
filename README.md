@@ -18,6 +18,8 @@ All preview screenshots are stored in the `previews/` folder.
 
 ![Network Monitor Lite AI Analysis Panel](previews/image-1776268422876.png)
 
+![Network Monitor Lite AI Analysis Panel (Latest)](previews/AI%20Analysis%20Panel.png)
+
 ## Key Features
 
 - Real-time request capture for the selected tab
@@ -77,6 +79,7 @@ extension/
   popup.js        # UI rendering, filters, exports, interactions
   icon.png        # Extension icon
 previews/
+  AI Analysis Panel.png
   image.png
   image-1776268422876.png
 README.md
