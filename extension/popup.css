@@ -48,6 +48,10 @@ body {
   animation: rise-in 0.22s ease-out;
 }
 
+.topbar-left {
+  min-width: 0;
+}
+
 h1 {
   margin: 0;
   font-size: 18px;
@@ -63,6 +67,34 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.developer-credit {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 223, 116, 0.5);
+  background: linear-gradient(120deg, rgba(255, 223, 116, 0.18), rgba(67, 219, 255, 0.12));
+  box-shadow: 0 0 0 1px rgba(255, 223, 116, 0.06), 0 0 26px rgba(255, 223, 116, 0.08);
+}
+
+.developer-tag {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #131f34;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: linear-gradient(120deg, #ffe58a, #ffc56e);
+}
+
+.developer-credit strong {
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  color: #fff7d7;
 }
 
 .topbar-right {
@@ -430,6 +462,16 @@ tbody tr:hover {
 
   .topbar-right {
     align-items: flex-start;
+  }
+
+  .developer-credit {
+    max-width: 100%;
+  }
+
+  .developer-credit strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .table-shell {

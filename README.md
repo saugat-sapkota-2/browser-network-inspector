@@ -4,6 +4,12 @@ Network Monitor Lite is a lightweight Chrome/Chromium extension that captures an
 
 It is designed for fast inspection during web debugging, QA checks, and API troubleshooting without opening DevTools.
 
+## Developer
+
+### reinF-(Saugat Sapkota)
+
+Built with focus on real-world debugging speed, clean UX, and practical monitoring workflows.
+
 ## Preview
 
 ![Network Monitor Lite Preview 1](image.png)
