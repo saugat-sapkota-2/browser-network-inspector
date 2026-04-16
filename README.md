@@ -75,7 +75,7 @@ README.md
 6. Select the extension folder:
 
 ```text
-web_net_mon/extension
+Downloads/extension
 ```
 
 7. Pin the extension from the browser toolbar for quick access.
