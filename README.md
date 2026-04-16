@@ -165,4 +165,4 @@ For iterative development:
 
 ## License
 
-Add your preferred license information here (for example MIT).
+Copyright (c) 2026 Saugat Sapkota
