@@ -5,6 +5,7 @@ const IMAGE_FILE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "bmp", "svg"
 const VIDEO_FILE_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "flv", "wmv", "ogv", "m3u8", "mpd", "ts"]);
 
 const state = {
+  targetTabId: null,
   allLogs: [],
   summary: {
     total: 0,
@@ -60,11 +61,32 @@ const dom = {
 
 document.addEventListener("DOMContentLoaded", init);
 
-function init() {
+function parseTargetTabIdFromQuery() {
+  try {
+    const url = new URL(window.location.href);
+    const raw = url.searchParams.get("targetTabId");
+    const parsed = Number(raw);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function matchesTargetTab(messageTargetTabId) {
+  if (!Number.isInteger(state.targetTabId) || state.targetTabId < 0) {
+    return false;
+  }
+
+  return Number.isInteger(messageTargetTabId) && messageTargetTabId === state.targetTabId;
+}
+
+async function init() {
+  state.targetTabId = parseTargetTabIdFromQuery();
   bindDom();
   bindEvents();
+
+  await requestInitialState();
   syncActiveTabLabel();
-  requestInitialState();
 }
 
 function bindDom() {
@@ -161,8 +183,16 @@ function bindEvents() {
 }
 
 function sendMessage(payload) {
+  const withContext =
+    Number.isInteger(state.targetTabId) && state.targetTabId >= 0
+      ? {
+          ...payload,
+          targetTabId: state.targetTabId
+        }
+      : payload;
+
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage(payload, (response) => {
+    chrome.runtime.sendMessage(withContext, (response) => {
       if (chrome.runtime.lastError) {
         resolve(null);
         return;
@@ -176,7 +206,13 @@ function sendMessage(payload) {
 async function requestInitialState() {
   const response = await sendMessage({ type: "get-state" });
   if (!response) {
+    dom.activeTabLabel.textContent = "Unable to load monitor state";
+    dom.activeTabLabel.title = "";
     return;
+  }
+
+  if (Number.isInteger(response.targetTabId) && response.targetTabId >= 0) {
+    state.targetTabId = response.targetTabId;
   }
 
   state.settings = {
@@ -201,7 +237,13 @@ function onBackgroundMessage(message) {
     return false;
   }
 
+  const messageTargetTabId = Number(message.targetTabId);
+
   if (message.type === "network-log-added") {
+    if (!matchesTargetTab(messageTargetTabId)) {
+      return false;
+    }
+
     if (message.summary) {
       state.summary = message.summary;
     }
@@ -220,6 +262,10 @@ function onBackgroundMessage(message) {
   }
 
   if (message.type === "network-logs-cleared") {
+    if (!matchesTargetTab(messageTargetTabId)) {
+      return false;
+    }
+
     clearLocalLogs();
 
     if (message.summary && typeof message.summary === "object") {
@@ -238,6 +284,26 @@ function onBackgroundMessage(message) {
     return false;
   }
 
+  if (message.type === "tracked-tab-closed") {
+    if (!matchesTargetTab(messageTargetTabId)) {
+      return false;
+    }
+
+    clearLocalLogs();
+    state.summary = {
+      total: 0,
+      success: 0,
+      errors: 0,
+      avgLatency: 0,
+      totalData: 0
+    };
+    updateSummaryUi();
+
+    dom.activeTabLabel.textContent = "Tracked tab was closed";
+    dom.activeTabLabel.title = "";
+    return false;
+  }
+
   if (message.type === "settings-updated") {
     state.settings = {
       ...state.settings,
@@ -246,11 +312,6 @@ function onBackgroundMessage(message) {
 
     state.maxLogs = Number.isFinite(state.settings.maxLogs) ? state.settings.maxLogs : state.maxLogs;
     syncSettingsUi();
-    return false;
-  }
-
-  if (message.type === "active-tab-updated") {
-    syncActiveTabLabel();
     return false;
   }
 
@@ -965,15 +1026,15 @@ function computeSummary(logs) {
 }
 
 async function syncActiveTabLabel() {
-  try {
-    const stateSnapshot = await sendMessage({ type: "get-state" });
-    if (!stateSnapshot || !Number.isInteger(stateSnapshot.activeTabId) || stateSnapshot.activeTabId < 0) {
-      dom.activeTabLabel.textContent = "No monitored tab selected";
-      dom.activeTabLabel.title = "";
-      return;
-    }
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    dom.activeTabLabel.textContent = "No monitored tab selected";
+    dom.activeTabLabel.title = "";
+    return;
+  }
 
-    const tab = await chrome.tabs.get(stateSnapshot.activeTabId);
+  try {
+    const tab = await chrome.tabs.get(targetTabId);
     const title = truncate(tab.title || "Untitled tab", 56);
     const url = isHttpUrl(tab.url) ? truncate(tab.url, 92) : "No URL";
     dom.activeTabLabel.textContent = `Tracking: ${title} | ${url}`;
@@ -981,7 +1042,7 @@ async function syncActiveTabLabel() {
       ? `${tab.title || "Untitled tab"}\n${tab.url}`
       : title;
   } catch {
-    dom.activeTabLabel.textContent = "Unable to resolve monitored tab";
+    dom.activeTabLabel.textContent = "Tracked tab is not available";
     dom.activeTabLabel.title = "";
   }
 }
