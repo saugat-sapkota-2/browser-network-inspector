@@ -228,6 +228,7 @@
         </div>
         <div class="elements-head-actions">
           <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
+          <button id="pickElementBtn" class="ghost-btn" type="button">Pick On Page</button>
           <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close elements panel">Close</button>
         </div>
       </div>
@@ -238,10 +239,20 @@
             <h3>Element Selectors</h3>
             <span id="elementsCount">0</span>
           </div>
+          <div class="element-selector-input-row">
+            <input
+              id="elementSelectorInput"
+              type="text"
+              placeholder="Find by CSS selector (e.g. #app .btn-primary)"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <button id="applyElementSelectorBtn" class="ghost-btn" type="button">Select</button>
+          </div>
           <input
             id="elementsSearchInput"
             type="search"
-            placeholder="Filter selectors..."
+            placeholder="Filter loaded selectors..."
             autocomplete="off"
             spellcheck="false"
           >

@@ -477,6 +477,7 @@ h1 {
 .source-filter-chip:focus-visible,
 .switch-row input[type="checkbox"]:focus-visible,
 #searchInput:focus-visible,
+#elementSelectorInput:focus-visible,
 #elementsSearchInput:focus-visible,
 .element-selector-item:focus-visible {
   outline: none;
@@ -711,7 +712,9 @@ h1 {
   gap: 8px;
 }
 
-#scanElementsBtn.is-running {
+#scanElementsBtn.is-running,
+#pickElementBtn.is-running,
+#applyElementSelectorBtn.is-running {
   border-color: rgba(82, 216, 255, 0.78);
   color: #adf2ff;
   background: rgba(22, 57, 80, 0.85);
@@ -767,6 +770,32 @@ h1 {
   color: #97deff;
   font-size: 11px;
   padding: 3px 9px;
+}
+
+.element-selector-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+#elementSelectorInput {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 184, 248, 0.36);
+  background: rgba(7, 18, 29, 0.88);
+  color: var(--text-main);
+  padding: 9px 10px;
+  font-size: 12px;
+  font-family: "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+}
+
+#elementSelectorInput::placeholder {
+  color: #7f9cb8;
+}
+
+#elementSelectorInput:focus {
+  border-color: rgba(82, 216, 255, 0.8);
 }
 
 #elementsSearchInput {
@@ -1608,6 +1637,14 @@ tbody tr:hover {
 
   .elements-head {
     flex-direction: column;
+  }
+
+  .element-selector-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  #applyElementSelectorBtn {
+    width: 100%;
   }
 
   .performance-side-shell {

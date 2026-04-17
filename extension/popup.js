@@ -105,6 +105,9 @@ const dom = {
   elementsMeta: null,
   closeElementsBtn: null,
   scanElementsBtn: null,
+  pickElementBtn: null,
+  elementSelectorInput: null,
+  applyElementSelectorBtn: null,
   elementSelectorList: null,
   elementsCount: null,
   elementsSearchInput: null,
@@ -215,6 +218,9 @@ function bindDom() {
   dom.elementsMeta = document.getElementById("elementsMeta");
   dom.closeElementsBtn = document.getElementById("closeElementsBtn");
   dom.scanElementsBtn = document.getElementById("scanElementsBtn");
+  dom.pickElementBtn = document.getElementById("pickElementBtn");
+  dom.elementSelectorInput = document.getElementById("elementSelectorInput");
+  dom.applyElementSelectorBtn = document.getElementById("applyElementSelectorBtn");
   dom.elementSelectorList = document.getElementById("elementSelectorList");
   dom.elementsCount = document.getElementById("elementsCount");
   dom.elementsSearchInput = document.getElementById("elementsSearchInput");
@@ -364,6 +370,23 @@ function bindEvents() {
 
   dom.scanElementsBtn.addEventListener("click", () => {
     void scanElementsSnapshot();
+  });
+
+  dom.pickElementBtn.addEventListener("click", () => {
+    void pickElementFromPage();
+  });
+
+  dom.applyElementSelectorBtn.addEventListener("click", () => {
+    void selectElementBySelectorInput();
+  });
+
+  dom.elementSelectorInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    void selectElementBySelectorInput();
   });
 
   dom.closeElementsBtn.addEventListener("click", () => {
@@ -1145,6 +1168,7 @@ function resetElementsPanel(message) {
   state.elements.items = [];
   state.elements.searchQuery = "";
   state.elements.selectedKey = "";
+  dom.elementSelectorInput.value = "";
   dom.elementsSearchInput.value = "";
   dom.elementsMeta.textContent = message;
   renderElementSelectorList();
@@ -1155,6 +1179,11 @@ function setElementsLoading(isLoading, message) {
   state.elements.isLoading = Boolean(isLoading);
   dom.scanElementsBtn.disabled = state.elements.isLoading;
   dom.scanElementsBtn.classList.toggle("is-running", state.elements.isLoading);
+  dom.pickElementBtn.disabled = state.elements.isLoading;
+  dom.pickElementBtn.classList.toggle("is-running", state.elements.isLoading);
+  dom.applyElementSelectorBtn.disabled = state.elements.isLoading;
+  dom.applyElementSelectorBtn.classList.toggle("is-running", state.elements.isLoading);
+  dom.elementSelectorInput.disabled = state.elements.isLoading;
 
   if (typeof message === "string" && message.length > 0) {
     dom.elementsMeta.textContent = message;
@@ -1185,6 +1214,76 @@ async function scanElementsSnapshot() {
   }
 
   renderElementsSnapshot(snapshot);
+  setElementsLoading(false, dom.elementsMeta.textContent);
+}
+
+async function selectElementBySelectorInput() {
+  const selector = String(dom.elementSelectorInput.value || "").trim();
+  if (selector.length === 0) {
+    dom.elementsMeta.textContent = "Enter a CSS selector (for example: #app .btn-primary).";
+    dom.elementSelectorInput.focus();
+    return;
+  }
+
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    resetElementsPanel("No tracked tab available for selector lookup.");
+    return;
+  }
+
+  const requestToken = state.elements.requestToken + 1;
+  state.elements.requestToken = requestToken;
+  setElementsLoading(true, `Locating selector \"${selector}\" in tracked tab...`);
+
+  const snapshot = await captureElementBySelectorFromTrackedTab(selector);
+
+  if (requestToken !== state.elements.requestToken) {
+    return;
+  }
+
+  if (!snapshot || !snapshot.ok) {
+    const reason = snapshot && snapshot.error ? snapshot.error : "Unknown selector lookup error.";
+    setElementsLoading(false, `Selector lookup failed: ${reason}`);
+    return;
+  }
+
+  renderElementSelectorSnapshot(snapshot);
+  setElementsLoading(false, dom.elementsMeta.textContent);
+}
+
+async function pickElementFromPage() {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    resetElementsPanel("No tracked tab available for mouse element pick.");
+    return;
+  }
+
+  const requestToken = state.elements.requestToken + 1;
+  state.elements.requestToken = requestToken;
+  setElementsLoading(
+    true,
+    "Pick mode active: move mouse over the tracked tab and click an element. Press Escape in tab to cancel."
+  );
+
+  try {
+    await chrome.tabs.update(targetTabId, { active: true });
+  } catch {
+    // Ignore focus/activation errors and continue with picker flow.
+  }
+
+  const snapshot = await captureElementByMouseFromTrackedTab();
+
+  if (requestToken !== state.elements.requestToken) {
+    return;
+  }
+
+  if (!snapshot || !snapshot.ok) {
+    const reason = snapshot && snapshot.error ? snapshot.error : "Unknown picker error.";
+    setElementsLoading(false, `Element pick failed: ${reason}`);
+    return;
+  }
+
+  renderElementSelectorSnapshot(snapshot);
   setElementsLoading(false, dom.elementsMeta.textContent);
 }
 
@@ -1219,6 +1318,68 @@ async function captureElementsSnapshotFromTrackedTab() {
   }
 }
 
+async function captureElementBySelectorFromTrackedTab(selector) {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return { ok: false, error: "No tracked tab selected." };
+  }
+
+  if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") {
+    return { ok: false, error: "Scripting API unavailable. Add scripting permission and reload extension." };
+  }
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: collectElementBySelectorInPageContext,
+      args: [selector]
+    });
+
+    const firstResult = Array.isArray(results) && results.length > 0 ? results[0].result : null;
+    if (!firstResult || typeof firstResult !== "object") {
+      return { ok: false, error: "No selector data returned from page." };
+    }
+
+    return firstResult;
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
+async function captureElementByMouseFromTrackedTab() {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return { ok: false, error: "No tracked tab selected." };
+  }
+
+  if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") {
+    return { ok: false, error: "Scripting API unavailable. Add scripting permission and reload extension." };
+  }
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: pickElementInPageContext,
+      args: [45000]
+    });
+
+    const firstResult = Array.isArray(results) && results.length > 0 ? results[0].result : null;
+    if (!firstResult || typeof firstResult !== "object") {
+      return { ok: false, error: "No picker data returned from page." };
+    }
+
+    return firstResult;
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
 function renderElementsSnapshot(snapshot) {
   const elements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
   const pageUrl = String(snapshot.page?.url || "");
@@ -1239,6 +1400,65 @@ function renderElementsSnapshot(snapshot) {
   dom.elementsMeta.textContent = `Captured ${formatInteger(elements.length)} elements from ${host} at ${capturedAtText}.`;
   renderElementSelectorList();
   renderSelectedElementDetails(filteredItems[0] || null);
+}
+
+function renderElementSelectorSnapshot(snapshot) {
+  const rawItem = snapshot.element && typeof snapshot.element === "object" ? snapshot.element : null;
+  if (!rawItem) {
+    dom.elementsMeta.textContent = "Selector lookup returned no element details.";
+    return;
+  }
+
+  const selector = String(rawItem.selector || "").trim();
+  if (selector.length === 0) {
+    dom.elementsMeta.textContent = "Selector lookup returned an invalid selector value.";
+    return;
+  }
+
+  const item = {
+    key: String(rawItem.key || `manual:${selector}`),
+    selector,
+    tagName: String(rawItem.tagName || "element"),
+    textSnippet: String(rawItem.textSnippet || ""),
+    html: String(rawItem.html || ""),
+    css: String(rawItem.css || "")
+  };
+
+  upsertElementItem(item);
+  state.elements.selectedKey = item.key;
+  state.elements.searchQuery = "";
+  dom.elementSelectorInput.value = selector;
+  dom.elementsSearchInput.value = "";
+
+  const pageUrl = String(snapshot.page?.url || "");
+  const host = isHttpUrl(pageUrl) ? getDomain(pageUrl) : "tracked tab";
+  const capturedAtText = formatTime(snapshot.capturedAt || Date.now());
+  dom.elementsMeta.textContent = `Selector ${selector} captured from ${host} at ${capturedAtText}.`;
+
+  renderElementSelectorList();
+  renderSelectedElementDetails(item);
+  void previewElementBySelectorInTrackedTab(item.selector);
+}
+
+function upsertElementItem(item) {
+  const existingIndex = state.elements.items.findIndex((existingItem) => {
+    return existingItem && (existingItem.key === item.key || existingItem.selector === item.selector);
+  });
+
+  if (existingIndex >= 0) {
+    state.elements.items[existingIndex] = item;
+
+    if (existingIndex > 0) {
+      state.elements.items.splice(existingIndex, 1);
+      state.elements.items.unshift(item);
+    }
+  } else {
+    state.elements.items.unshift(item);
+  }
+
+  if (state.elements.items.length > ELEMENT_SELECTOR_SCAN_LIMIT) {
+    state.elements.items = state.elements.items.slice(0, ELEMENT_SELECTOR_SCAN_LIMIT);
+  }
 }
 
 function getFilteredElementItems() {
@@ -1310,6 +1530,37 @@ function selectElementByKey(key) {
 
   state.elements.selectedKey = key;
   renderElementSelectorList();
+
+  const selectedItem = state.elements.items.find((item) => item && item.key === key);
+  if (selectedItem && selectedItem.selector) {
+    void previewElementBySelectorInTrackedTab(selectedItem.selector);
+  }
+}
+
+async function previewElementBySelectorInTrackedTab(selector) {
+  const trimmedSelector = String(selector || "").trim();
+  if (trimmedSelector.length === 0) {
+    return;
+  }
+
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return;
+  }
+
+  if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: flashElementBySelectorInPageContext,
+      args: [trimmedSelector]
+    });
+  } catch {
+    // Ignore highlight preview failures.
+  }
 }
 
 function renderSelectedElementDetails(item) {
@@ -1871,6 +2122,446 @@ function collectPerformanceInPageContext() {
         load: navigationEntry ? Number(navigationEntry.loadEventEnd) : null,
         transferSize: navigationEntry ? Number(navigationEntry.transferSize) : null,
         resourceCount: performance.getEntriesByType("resource").length
+      }
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
+function flashElementBySelectorInPageContext(selectorInput) {
+  try {
+    const selector = String(selectorInput || "").trim();
+    if (!selector) {
+      return false;
+    }
+
+    const target = document.querySelector(selector);
+    if (!target) {
+      return false;
+    }
+
+    const rect = target.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return false;
+    }
+
+    target.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+
+    const overlay = document.createElement("div");
+    overlay.style.position = "fixed";
+    overlay.style.zIndex = "2147483647";
+    overlay.style.pointerEvents = "none";
+    overlay.style.left = `${rect.left}px`;
+    overlay.style.top = `${rect.top}px`;
+    overlay.style.width = `${rect.width}px`;
+    overlay.style.height = `${rect.height}px`;
+    overlay.style.border = "2px solid rgba(77, 231, 154, 0.95)";
+    overlay.style.background = "rgba(77, 231, 154, 0.12)";
+    overlay.style.boxShadow = "0 0 0 1px rgba(6, 15, 24, 0.85), 0 0 0 3px rgba(77, 231, 154, 0.2)";
+    overlay.style.borderRadius = "4px";
+    overlay.style.transition = "opacity 180ms ease";
+    overlay.style.opacity = "1";
+
+    document.documentElement.appendChild(overlay);
+
+    setTimeout(() => {
+      overlay.style.opacity = "0";
+    }, 1400);
+
+    setTimeout(() => {
+      if (overlay.isConnected) {
+        overlay.remove();
+      }
+    }, 1800);
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function pickElementInPageContext(timeoutMs = 45000) {
+  return new Promise((resolve) => {
+    try {
+      const safeTimeoutMs = Number.isFinite(timeoutMs)
+        ? Math.max(5000, Math.min(120000, Math.round(timeoutMs)))
+        : 45000;
+      const textPreviewLimit = 84;
+      const htmlPreviewLimit = 2400;
+      const cssProperties = [
+        "display",
+        "position",
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "width",
+        "height",
+        "margin",
+        "padding",
+        "color",
+        "background-color",
+        "font-size",
+        "font-family",
+        "font-weight",
+        "line-height",
+        "border",
+        "border-radius",
+        "box-shadow",
+        "opacity",
+        "z-index"
+      ];
+
+      const normalizeWhitespace = (value) => {
+        return String(value || "").replace(/\s+/g, " ").trim();
+      };
+
+      const escapeIdentifier = (value) => {
+        const source = String(value || "");
+        if (!source) {
+          return "";
+        }
+
+        if (typeof CSS !== "undefined" && CSS && typeof CSS.escape === "function") {
+          return CSS.escape(source);
+        }
+
+        return source.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+      };
+
+      const getNthOfType = (element) => {
+        let index = 1;
+        let sibling = element.previousElementSibling;
+
+        while (sibling) {
+          if (sibling.tagName === element.tagName) {
+            index += 1;
+          }
+          sibling = sibling.previousElementSibling;
+        }
+
+        return index;
+      };
+
+      const buildSelector = (element) => {
+        const segments = [];
+        let current = element;
+        let depth = 0;
+
+        while (current && depth < 5) {
+          const tagName = String(current.tagName || "").toLowerCase();
+          if (!tagName || tagName === "html") {
+            break;
+          }
+
+          if (current.id) {
+            segments.unshift(`#${escapeIdentifier(current.id)}`);
+            break;
+          }
+
+          let segment = tagName;
+          const classes = Array.from(current.classList || [])
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((name) => escapeIdentifier(name));
+
+          if (classes.length > 0) {
+            segment += `.${classes.join(".")}`;
+          }
+
+          segment += `:nth-of-type(${getNthOfType(current)})`;
+          segments.unshift(segment);
+
+          current = current.parentElement;
+          depth += 1;
+        }
+
+        return segments.join(" > ") || String(element.tagName || "element").toLowerCase();
+      };
+
+      const buildElementPayload = (element) => {
+        const selector = buildSelector(element);
+        let html = String(element.outerHTML || "").trim();
+        html = html.replace(/></g, ">\n<");
+        if (html.length > htmlPreviewLimit) {
+          html = `${html.slice(0, htmlPreviewLimit - 3)}...`;
+        }
+
+        const computedStyle = window.getComputedStyle(element);
+        const cssLines = cssProperties.map((property) => {
+          return `${property}: ${computedStyle.getPropertyValue(property)};`;
+        });
+
+        const inlineStyle = normalizeWhitespace(element.getAttribute("style") || "");
+        if (inlineStyle) {
+          cssLines.push(`inline-style: ${inlineStyle};`);
+        }
+
+        return {
+          key: `pick:${selector}`,
+          selector,
+          tagName: String(element.tagName || "").toLowerCase(),
+          textSnippet: normalizeWhitespace(element.textContent || "").slice(0, textPreviewLimit),
+          html,
+          css: cssLines.join("\n")
+        };
+      };
+
+      const isSelectableElement = (element) => {
+        if (!element || !(element instanceof Element)) {
+          return false;
+        }
+
+        const tagName = String(element.tagName || "").toLowerCase();
+        return tagName !== "html";
+      };
+
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.zIndex = "2147483647";
+      overlay.style.pointerEvents = "none";
+      overlay.style.border = "2px solid rgba(82, 216, 255, 0.95)";
+      overlay.style.background = "rgba(82, 216, 255, 0.12)";
+      overlay.style.boxShadow = "0 0 0 1px rgba(6, 15, 24, 0.9), 0 0 0 3px rgba(82, 216, 255, 0.2)";
+      overlay.style.borderRadius = "4px";
+      overlay.style.display = "none";
+
+      const label = document.createElement("div");
+      label.style.position = "fixed";
+      label.style.zIndex = "2147483647";
+      label.style.pointerEvents = "none";
+      label.style.maxWidth = "min(78vw, 560px)";
+      label.style.padding = "6px 9px";
+      label.style.borderRadius = "7px";
+      label.style.border = "1px solid rgba(82, 216, 255, 0.85)";
+      label.style.background = "rgba(6, 15, 24, 0.96)";
+      label.style.color = "#d9f4ff";
+      label.style.font = "600 11px/1.35 'JetBrains Mono', 'Consolas', monospace";
+      label.style.whiteSpace = "nowrap";
+      label.style.overflow = "hidden";
+      label.style.textOverflow = "ellipsis";
+      label.style.display = "none";
+
+      document.documentElement.append(overlay, label);
+
+      let settled = false;
+      let timeoutId = null;
+
+      const cleanup = () => {
+        document.removeEventListener("pointermove", onPointerMove, true);
+        document.removeEventListener("pointerdown", onPointerDown, true);
+        window.removeEventListener("keydown", onKeyDown, true);
+
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+
+        if (overlay.isConnected) {
+          overlay.remove();
+        }
+
+        if (label.isConnected) {
+          label.remove();
+        }
+      };
+
+      const finalize = (result) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      const setOverlayTarget = (element, pointerX, pointerY) => {
+        if (!isSelectableElement(element)) {
+          overlay.style.display = "none";
+          label.style.display = "none";
+          return;
+        }
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          overlay.style.display = "none";
+          label.style.display = "none";
+          return;
+        }
+
+        overlay.style.display = "block";
+        overlay.style.left = `${Math.max(0, rect.left)}px`;
+        overlay.style.top = `${Math.max(0, rect.top)}px`;
+        overlay.style.width = `${Math.max(0, rect.width)}px`;
+        overlay.style.height = `${Math.max(0, rect.height)}px`;
+
+        const selectorLabel = buildSelector(element);
+        label.textContent = `${selectorLabel} | click to select | Esc to cancel`;
+        label.style.display = "block";
+
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        let left = Number.isFinite(pointerX) ? pointerX + 12 : rect.left;
+        let top = Number.isFinite(pointerY) ? pointerY + 14 : rect.top;
+
+        left = Math.max(8, Math.min(left, Math.max(8, viewportWidth - 320)));
+        top = Math.max(8, Math.min(top, Math.max(8, viewportHeight - 28)));
+
+        label.style.left = `${left}px`;
+        label.style.top = `${top}px`;
+      };
+
+      const onPointerMove = (event) => {
+        const element = document.elementFromPoint(event.clientX, event.clientY);
+        setOverlayTarget(element, event.clientX, event.clientY);
+      };
+
+      const onPointerDown = (event) => {
+        if (event.pointerType !== "touch" && event.button !== 0) {
+          return;
+        }
+
+        const element = document.elementFromPoint(event.clientX, event.clientY);
+        if (!isSelectableElement(element)) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") {
+          event.stopImmediatePropagation();
+        }
+
+        finalize({
+          ok: true,
+          capturedAt: Date.now(),
+          page: {
+            url: location.href,
+            title: document.title
+          },
+          element: buildElementPayload(element)
+        });
+      };
+
+      const onKeyDown = (event) => {
+        if (event.key !== "Escape") {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        finalize({ ok: false, error: "Selection canceled." });
+      };
+
+      document.addEventListener("pointermove", onPointerMove, true);
+      document.addEventListener("pointerdown", onPointerDown, true);
+      window.addEventListener("keydown", onKeyDown, true);
+
+      timeoutId = setTimeout(() => {
+        finalize({ ok: false, error: "Selection timed out. Start pick mode again." });
+      }, safeTimeoutMs);
+
+      const centerX = Math.max(1, Math.round(window.innerWidth / 2));
+      const centerY = Math.max(1, Math.round(window.innerHeight / 2));
+      const initialTarget = document.elementFromPoint(centerX, centerY);
+      setOverlayTarget(initialTarget, centerX, centerY);
+    } catch (error) {
+      resolve({
+        ok: false,
+        error: error && error.message ? error.message : String(error)
+      });
+    }
+  });
+}
+
+function collectElementBySelectorInPageContext(selectorInput) {
+  try {
+    const selector = String(selectorInput || "").trim();
+    if (!selector) {
+      return { ok: false, error: "Selector is empty." };
+    }
+
+    const cssProperties = [
+      "display",
+      "position",
+      "top",
+      "right",
+      "bottom",
+      "left",
+      "width",
+      "height",
+      "margin",
+      "padding",
+      "color",
+      "background-color",
+      "font-size",
+      "font-family",
+      "font-weight",
+      "line-height",
+      "border",
+      "border-radius",
+      "box-shadow",
+      "opacity",
+      "z-index"
+    ];
+    const textPreviewLimit = 84;
+    const htmlPreviewLimit = 2400;
+
+    const normalizeWhitespace = (value) => {
+      return String(value || "").replace(/\s+/g, " ").trim();
+    };
+
+    let element = null;
+    try {
+      element = document.querySelector(selector);
+    } catch (selectorError) {
+      return {
+        ok: false,
+        error: selectorError && selectorError.message
+          ? selectorError.message
+          : "Invalid CSS selector."
+      };
+    }
+
+    if (!element) {
+      return { ok: false, error: "No element matches that selector." };
+    }
+
+    let html = String(element.outerHTML || "").trim();
+    html = html.replace(/></g, ">\n<");
+    if (html.length > htmlPreviewLimit) {
+      html = `${html.slice(0, htmlPreviewLimit - 3)}...`;
+    }
+
+    const computedStyle = window.getComputedStyle(element);
+    const cssLines = cssProperties.map((property) => {
+      return `${property}: ${computedStyle.getPropertyValue(property)};`;
+    });
+
+    const inlineStyle = normalizeWhitespace(element.getAttribute("style") || "");
+    if (inlineStyle) {
+      cssLines.push(`inline-style: ${inlineStyle};`);
+    }
+
+    return {
+      ok: true,
+      capturedAt: Date.now(),
+      page: {
+        url: location.href,
+        title: document.title
+      },
+      element: {
+        key: `manual:${selector}`,
+        selector,
+        tagName: String(element.tagName || "").toLowerCase(),
+        textSnippet: normalizeWhitespace(element.textContent || "").slice(0, textPreviewLimit),
+        html,
+        css: cssLines.join("\n")
       }
     };
   } catch (error) {
