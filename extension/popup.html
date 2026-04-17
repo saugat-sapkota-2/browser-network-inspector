@@ -10,28 +10,51 @@
   <main class="app-shell">
     <header class="topbar">
       <div class="topbar-left">
-        <h1>Network Monitor Lite</h1>
-        <p class="subtitle" id="activeTabLabel">Active tab only - monitor window</p>
-        <div class="developer-credit" aria-label="Developer credit">
-          <span class="developer-tag">Developer</span>
-          <strong>reinF-(Saugat Sapkota)</strong>
+        <div class="identity-row">
+          <span class="product-tag">Network Monitor Lite</span>
+          <span class="developer-tag">Built By</span>
+          <span class="developer-credit" aria-label="Developer credit">
+            <strong>reinF (Saugat Sapkota)</strong>
+          </span>
+          <span class="capture-pill" id="captureState">
+            <span class="capture-dot" aria-hidden="true"></span>
+            <span class="capture-text">Live Capture</span>
+          </span>
         </div>
+        <h1>Traffic Intelligence Dashboard</h1>
+        <p class="subtitle" id="activeTabLabel">Tracking: www.ex.com</p>
+        <button id="analyzeNetworkBtn" class="primary-btn analyze-btn" type="button">Analyze Network</button>
       </div>
       <div class="topbar-right">
-        <button id="analyzeNetworkBtn" class="primary-btn" type="button">Analyze Network</button>
-        <label class="switch-row" for="aiModeToggle">
-          <input type="checkbox" id="aiModeToggle" checked>
-          <span id="aiModeLabel">AI Mode ON</span>
-        </label>
-        <span class="capture-pill" id="captureState">Live capture</span>
-        <label class="switch-row" for="pauseToggle">
-          <input type="checkbox" id="pauseToggle">
-          <span>Pause</span>
-        </label>
-        <label class="switch-row" for="autoClearToggle">
-          <input type="checkbox" id="autoClearToggle">
-          <span>Clear on window close</span>
-        </label>
+        <section class="topbar-controls-card" aria-label="Capture controls">
+          <p class="controls-kicker">Capture Controls</p>
+          <div class="switch-cluster">
+            <label class="toggle-row" for="aiModeToggle">
+              <span class="toggle-copy">
+                <span class="toggle-label">AI Mode</span>
+                <span class="toggle-state" id="aiModeLabel">ON</span>
+              </span>
+              <input type="checkbox" id="aiModeToggle" checked>
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label class="toggle-row" for="pauseToggle">
+              <span class="toggle-copy">
+                <span class="toggle-label">Pause Capture</span>
+                <span class="toggle-state" id="pauseStateLabel">OFF</span>
+              </span>
+              <input type="checkbox" id="pauseToggle">
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label class="toggle-row" for="autoClearToggle">
+              <span class="toggle-copy">
+                <span class="toggle-label">Clear on Window Close</span>
+                <span class="toggle-state" id="autoClearStateLabel">OFF</span>
+              </span>
+              <input type="checkbox" id="autoClearToggle">
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+          </div>
+        </section>
       </div>
     </header>
 
@@ -63,7 +86,8 @@
     <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
       <div class="analysis-head">
         <div>
-          <h2>AI Analysis Panel</h2>
+          <p class="analysis-kicker">AI Insight</p>
+          <h2>Analysis Panel</h2>
           <p id="analysisMeta" class="analysis-meta">Run Analyze Network to generate actionable insights.</p>
         </div>
         <div class="analysis-head-actions">
@@ -117,6 +141,10 @@
     </section>
 
     <section class="controls">
+      <div class="controls-head">
+        <h2>Filters And Actions</h2>
+        <p>Refine incoming requests and export exactly what you need.</p>
+      </div>
       <input
         id="searchInput"
         type="search"

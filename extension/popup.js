@@ -54,7 +54,9 @@ const dom = {
   activeTabLabel: null,
   captureState: null,
   pauseToggle: null,
+  pauseStateLabel: null,
   autoClearToggle: null,
+  autoClearStateLabel: null,
   analyzeNetworkBtn: null,
   aiModeToggle: null,
   aiModeLabel: null,
@@ -130,7 +132,9 @@ function bindDom() {
   dom.activeTabLabel = document.getElementById("activeTabLabel");
   dom.captureState = document.getElementById("captureState");
   dom.pauseToggle = document.getElementById("pauseToggle");
+  dom.pauseStateLabel = document.getElementById("pauseStateLabel");
   dom.autoClearToggle = document.getElementById("autoClearToggle");
+  dom.autoClearStateLabel = document.getElementById("autoClearStateLabel");
   dom.analyzeNetworkBtn = document.getElementById("analyzeNetworkBtn");
   dom.aiModeToggle = document.getElementById("aiModeToggle");
   dom.aiModeLabel = document.getElementById("aiModeLabel");
@@ -792,12 +796,20 @@ function createLogRow(entry) {
 function syncSettingsUi() {
   dom.pauseToggle.checked = Boolean(state.settings.paused);
   dom.autoClearToggle.checked = Boolean(state.settings.autoClearOnPopupClose);
+  dom.pauseStateLabel.textContent = state.settings.paused ? "ON" : "OFF";
+  dom.autoClearStateLabel.textContent = state.settings.autoClearOnPopupClose ? "ON" : "OFF";
+
+  const captureText = dom.captureState.querySelector(".capture-text");
 
   if (state.settings.paused) {
-    dom.captureState.textContent = "Capture paused";
+    if (captureText) {
+      captureText.textContent = "Capture Paused";
+    }
     dom.captureState.classList.add("paused");
   } else {
-    dom.captureState.textContent = "Live capture";
+    if (captureText) {
+      captureText.textContent = "Live Capture";
+    }
     dom.captureState.classList.remove("paused");
   }
 }
@@ -812,7 +824,7 @@ function updateSummaryUi() {
 
 function syncAiModeUi() {
   dom.aiModeToggle.checked = Boolean(state.analysis.aiMode);
-  dom.aiModeLabel.textContent = state.analysis.aiMode ? "AI Mode ON" : "AI Mode OFF";
+  dom.aiModeLabel.textContent = state.analysis.aiMode ? "ON" : "OFF";
 }
 
 function syncDeepModeUi() {
@@ -1884,7 +1896,7 @@ function computeSummary(logs) {
 async function syncActiveTabLabel() {
   const targetTabId = Number(state.targetTabId);
   if (!Number.isInteger(targetTabId) || targetTabId < 0) {
-    dom.activeTabLabel.textContent = "No monitored tab selected";
+    dom.activeTabLabel.textContent = "Tracking: No monitored tab selected";
     dom.activeTabLabel.title = "";
     return;
   }
@@ -1892,13 +1904,25 @@ async function syncActiveTabLabel() {
   try {
     const tab = await chrome.tabs.get(targetTabId);
     const title = truncate(tab.title || "Untitled tab", 56);
-    const url = isHttpUrl(tab.url) ? truncate(tab.url, 92) : "No URL";
-    dom.activeTabLabel.textContent = `Tracking: ${title} | ${url}`;
+    let trackingName = title;
+
+    if (isHttpUrl(tab.url)) {
+      try {
+        const host = new URL(tab.url).hostname;
+        if (host) {
+          trackingName = host;
+        }
+      } catch {
+        trackingName = truncate(tab.url, 56);
+      }
+    }
+
+    dom.activeTabLabel.textContent = `Tracking: ${trackingName}`;
     dom.activeTabLabel.title = isHttpUrl(tab.url)
       ? `${tab.title || "Untitled tab"}\n${tab.url}`
       : title;
   } catch {
-    dom.activeTabLabel.textContent = "Tracked tab is not available";
+    dom.activeTabLabel.textContent = "Tracking: Tab is not available";
     dom.activeTabLabel.title = "";
   }
 }
