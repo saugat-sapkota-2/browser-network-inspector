@@ -26,6 +26,7 @@
         <div class="header-action-row">
           <button id="analyzeNetworkBtn" class="primary-btn analyze-btn" type="button">Analyze Network</button>
           <button id="openPerformanceBtn" class="ghost-btn performance-open-btn" type="button">Performance Tab</button>
+          <button id="openElementsBtn" class="ghost-btn elements-open-btn" type="button">Elements Tab</button>
         </div>
       </div>
       <div class="topbar-right">
@@ -86,6 +87,7 @@
 
     <div id="analysisBackdrop" class="analysis-backdrop hidden" aria-hidden="true"></div>
     <div id="performanceBackdrop" class="performance-backdrop hidden" aria-hidden="true"></div>
+    <div id="elementsBackdrop" class="elements-backdrop hidden" aria-hidden="true"></div>
 
     <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
       <div class="analysis-head">
@@ -214,6 +216,49 @@
             <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
           </section>
         </aside>
+      </div>
+    </section>
+
+    <section id="elementsPanel" class="elements-shell elements-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="elements-head">
+        <div>
+          <p class="analysis-kicker">Elements</p>
+          <h2>Elements Tab</h2>
+          <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML/CSS.</p>
+        </div>
+        <div class="elements-head-actions">
+          <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
+          <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close elements panel">Close</button>
+        </div>
+      </div>
+
+      <div class="elements-layout">
+        <section class="elements-list-shell" aria-label="Element selector list">
+          <div class="elements-list-head">
+            <h3>Element Selectors</h3>
+            <span id="elementsCount">0</span>
+          </div>
+          <input
+            id="elementsSearchInput"
+            type="search"
+            placeholder="Filter selectors..."
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <div id="elementSelectorList" class="element-selector-list"></div>
+        </section>
+
+        <section class="elements-detail-shell" aria-label="Element HTML and CSS details">
+          <h3 id="elementDetailsTitle">Selected Element</h3>
+          <article class="element-code-shell">
+            <p class="element-code-label">HTML</p>
+            <pre id="elementHtmlView" class="element-code-view">Select an element selector to view HTML.</pre>
+          </article>
+          <article class="element-code-shell">
+            <p class="element-code-label">CSS</p>
+            <pre id="elementCssView" class="element-code-view">Select an element selector to view computed CSS.</pre>
+          </article>
+        </section>
       </div>
     </section>
 

@@ -13,6 +13,8 @@ const PERF_RELOAD_CAPTURE_WAIT_MS = 22000;
 const PERF_RELOAD_POLL_INTERVAL_MS = 1200;
 const PERF_RELOAD_NAV_CHANGE_GRACE_MS = 25;
 
+const ELEMENT_SELECTOR_SCAN_LIMIT = 450;
+
 const state = {
   targetTabId: null,
   allLogs: [],
@@ -49,6 +51,14 @@ const state = {
     requestToken: 0,
     snapshot: null
   },
+  elements: {
+    isOpen: false,
+    isLoading: false,
+    requestToken: 0,
+    items: [],
+    searchQuery: "",
+    selectedKey: ""
+  },
   analysis: {
     aiMode: true,
     deepMode: true,
@@ -68,6 +78,7 @@ const dom = {
   autoClearStateLabel: null,
   analyzeNetworkBtn: null,
   openPerformanceBtn: null,
+  openElementsBtn: null,
   aiModeToggle: null,
   aiModeLabel: null,
   performanceBackdrop: null,
@@ -89,6 +100,17 @@ const dom = {
   perfClsNote: null,
   perfInpNote: null,
   perfFcpNote: null,
+  elementsBackdrop: null,
+  elementsPanel: null,
+  elementsMeta: null,
+  closeElementsBtn: null,
+  scanElementsBtn: null,
+  elementSelectorList: null,
+  elementsCount: null,
+  elementsSearchInput: null,
+  elementDetailsTitle: null,
+  elementHtmlView: null,
+  elementCssView: null,
   statTotal: null,
   statSuccess: null,
   statErrors: null,
@@ -166,6 +188,7 @@ function bindDom() {
   dom.autoClearStateLabel = document.getElementById("autoClearStateLabel");
   dom.analyzeNetworkBtn = document.getElementById("analyzeNetworkBtn");
   dom.openPerformanceBtn = document.getElementById("openPerformanceBtn");
+  dom.openElementsBtn = document.getElementById("openElementsBtn");
   dom.aiModeToggle = document.getElementById("aiModeToggle");
   dom.aiModeLabel = document.getElementById("aiModeLabel");
   dom.performanceBackdrop = document.getElementById("performanceBackdrop");
@@ -187,6 +210,17 @@ function bindDom() {
   dom.perfClsNote = document.getElementById("perfClsNote");
   dom.perfInpNote = document.getElementById("perfInpNote");
   dom.perfFcpNote = document.getElementById("perfFcpNote");
+  dom.elementsBackdrop = document.getElementById("elementsBackdrop");
+  dom.elementsPanel = document.getElementById("elementsPanel");
+  dom.elementsMeta = document.getElementById("elementsMeta");
+  dom.closeElementsBtn = document.getElementById("closeElementsBtn");
+  dom.scanElementsBtn = document.getElementById("scanElementsBtn");
+  dom.elementSelectorList = document.getElementById("elementSelectorList");
+  dom.elementsCount = document.getElementById("elementsCount");
+  dom.elementsSearchInput = document.getElementById("elementsSearchInput");
+  dom.elementDetailsTitle = document.getElementById("elementDetailsTitle");
+  dom.elementHtmlView = document.getElementById("elementHtmlView");
+  dom.elementCssView = document.getElementById("elementCssView");
   dom.statTotal = document.getElementById("statTotal");
   dom.statSuccess = document.getElementById("statSuccess");
   dom.statErrors = document.getElementById("statErrors");
@@ -271,6 +305,11 @@ function bindEvents() {
     void recordPerformanceSnapshot({ withReload: true });
   });
 
+  dom.openElementsBtn.addEventListener("click", () => {
+    openElementsPanel();
+    void scanElementsSnapshot();
+  });
+
   dom.reAnalyzeBtn.addEventListener("click", () => {
     runNetworkAnalysis();
     openAnalysisPanel();
@@ -323,8 +362,39 @@ function bindEvents() {
     closePerformancePanel();
   });
 
+  dom.scanElementsBtn.addEventListener("click", () => {
+    void scanElementsSnapshot();
+  });
+
+  dom.closeElementsBtn.addEventListener("click", () => {
+    closeElementsPanel();
+  });
+
+  dom.elementsBackdrop.addEventListener("click", () => {
+    closeElementsPanel();
+  });
+
+  dom.elementsSearchInput.addEventListener("input", () => {
+    state.elements.searchQuery = dom.elementsSearchInput.value.trim().toLowerCase();
+    renderElementSelectorList();
+  });
+
+  dom.elementSelectorList.addEventListener("click", (event) => {
+    const button = event.target.closest(".element-selector-item");
+    if (!button) {
+      return;
+    }
+
+    selectElementByKey(button.dataset.key);
+  });
+
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") {
+      return;
+    }
+
+    if (state.elements.isOpen) {
+      closeElementsPanel();
       return;
     }
 
@@ -431,8 +501,10 @@ async function requestInitialState() {
   syncSourceFilterUi();
   closeAnalysisPanel();
   closePerformancePanel();
+  closeElementsPanel();
   resetAnalysisPanel("Run Analyze Network to generate actionable insights.");
   resetPerformancePanel("No performance data yet. Click Record.");
+  resetElementsPanel("Click Scan Elements to load selectors, HTML, and CSS from the tracked tab.");
   fullRender();
   updateSummaryUi();
 }
@@ -498,6 +570,8 @@ function onBackgroundMessage(message) {
     clearLocalLogs();
     closePerformancePanel();
     resetPerformancePanel("Tracked tab closed. Open a target tab and record again.");
+    closeElementsPanel();
+    resetElementsPanel("Tracked tab closed. Open a target tab and scan elements again.");
     state.summary = {
       total: 0,
       success: 0,
@@ -991,6 +1065,10 @@ function openAnalysisPanel() {
     closePerformancePanel();
   }
 
+  if (state.elements.isOpen) {
+    closeElementsPanel();
+  }
+
   state.analysis.isOpen = true;
   dom.analysisPanel.classList.remove("hidden");
   dom.analysisBackdrop.classList.remove("hidden");
@@ -1018,6 +1096,10 @@ function openPerformancePanel() {
     closeAnalysisPanel();
   }
 
+  if (state.elements.isOpen) {
+    closeElementsPanel();
+  }
+
   state.performance.isOpen = true;
   dom.performancePanel.classList.remove("hidden");
   dom.performanceBackdrop.classList.remove("hidden");
@@ -1032,6 +1114,215 @@ function closePerformancePanel() {
   dom.performanceBackdrop.classList.add("hidden");
   dom.performancePanel.setAttribute("aria-hidden", "true");
   document.body.classList.remove("performance-open");
+}
+
+function openElementsPanel() {
+  if (state.analysis.isOpen) {
+    closeAnalysisPanel();
+  }
+
+  if (state.performance.isOpen) {
+    closePerformancePanel();
+  }
+
+  state.elements.isOpen = true;
+  dom.elementsPanel.classList.remove("hidden");
+  dom.elementsBackdrop.classList.remove("hidden");
+  dom.elementsPanel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("elements-open");
+  dom.closeElementsBtn.focus();
+}
+
+function closeElementsPanel() {
+  state.elements.isOpen = false;
+  dom.elementsPanel.classList.add("hidden");
+  dom.elementsBackdrop.classList.add("hidden");
+  dom.elementsPanel.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("elements-open");
+}
+
+function resetElementsPanel(message) {
+  state.elements.items = [];
+  state.elements.searchQuery = "";
+  state.elements.selectedKey = "";
+  dom.elementsSearchInput.value = "";
+  dom.elementsMeta.textContent = message;
+  renderElementSelectorList();
+  renderSelectedElementDetails(null);
+}
+
+function setElementsLoading(isLoading, message) {
+  state.elements.isLoading = Boolean(isLoading);
+  dom.scanElementsBtn.disabled = state.elements.isLoading;
+  dom.scanElementsBtn.classList.toggle("is-running", state.elements.isLoading);
+
+  if (typeof message === "string" && message.length > 0) {
+    dom.elementsMeta.textContent = message;
+  }
+}
+
+async function scanElementsSnapshot() {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    resetElementsPanel("No tracked tab available for element scan.");
+    return;
+  }
+
+  const requestToken = state.elements.requestToken + 1;
+  state.elements.requestToken = requestToken;
+  setElementsLoading(true, "Scanning selectors, HTML, and CSS from the tracked tab...");
+
+  const snapshot = await captureElementsSnapshotFromTrackedTab();
+
+  if (requestToken !== state.elements.requestToken) {
+    return;
+  }
+
+  if (!snapshot || !snapshot.ok) {
+    const reason = snapshot && snapshot.error ? snapshot.error : "Unknown scan error.";
+    setElementsLoading(false, `Elements scan failed: ${reason}`);
+    return;
+  }
+
+  renderElementsSnapshot(snapshot);
+  setElementsLoading(false, dom.elementsMeta.textContent);
+}
+
+async function captureElementsSnapshotFromTrackedTab() {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return { ok: false, error: "No tracked tab selected." };
+  }
+
+  if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") {
+    return { ok: false, error: "Scripting API unavailable. Add scripting permission and reload extension." };
+  }
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: collectElementsInPageContext,
+      args: [ELEMENT_SELECTOR_SCAN_LIMIT]
+    });
+
+    const firstResult = Array.isArray(results) && results.length > 0 ? results[0].result : null;
+    if (!firstResult || typeof firstResult !== "object") {
+      return { ok: false, error: "No element data returned from page." };
+    }
+
+    return firstResult;
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
+function renderElementsSnapshot(snapshot) {
+  const elements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
+  const pageUrl = String(snapshot.page?.url || "");
+  const host = isHttpUrl(pageUrl) ? getDomain(pageUrl) : "tracked tab";
+  const capturedAtText = formatTime(snapshot.capturedAt || Date.now());
+
+  state.elements.items = elements;
+  state.elements.searchQuery = "";
+  dom.elementsSearchInput.value = "";
+
+  const filteredItems = getFilteredElementItems();
+  if (filteredItems.length > 0) {
+    state.elements.selectedKey = filteredItems[0].key;
+  } else {
+    state.elements.selectedKey = "";
+  }
+
+  dom.elementsMeta.textContent = `Captured ${formatInteger(elements.length)} elements from ${host} at ${capturedAtText}.`;
+  renderElementSelectorList();
+  renderSelectedElementDetails(filteredItems[0] || null);
+}
+
+function getFilteredElementItems() {
+  const query = state.elements.searchQuery;
+  if (!query) {
+    return state.elements.items;
+  }
+
+  return state.elements.items.filter((item) => {
+    const selector = String(item.selector || "").toLowerCase();
+    const tagName = String(item.tagName || "").toLowerCase();
+    const textSnippet = String(item.textSnippet || "").toLowerCase();
+    return selector.includes(query) || tagName.includes(query) || textSnippet.includes(query);
+  });
+}
+
+function renderElementSelectorList() {
+  const filteredItems = getFilteredElementItems();
+  dom.elementsCount.textContent = formatInteger(filteredItems.length);
+  dom.elementSelectorList.textContent = "";
+
+  if (filteredItems.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "analysis-empty";
+    empty.textContent = state.elements.items.length === 0
+      ? "No elements loaded yet. Click Scan Elements."
+      : "No selectors match your filter.";
+    dom.elementSelectorList.appendChild(empty);
+    renderSelectedElementDetails(null);
+    return;
+  }
+
+  if (!filteredItems.some((item) => item.key === state.elements.selectedKey)) {
+    state.elements.selectedKey = filteredItems[0].key;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const item of filteredItems) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "element-selector-item";
+    button.dataset.key = item.key;
+    button.classList.toggle("is-active", item.key === state.elements.selectedKey);
+
+    const selector = document.createElement("span");
+    selector.className = "element-selector-main";
+    selector.textContent = item.selector;
+
+    const meta = document.createElement("span");
+    meta.className = "element-selector-meta";
+    meta.textContent = item.textSnippet
+      ? `${item.tagName} | ${item.textSnippet}`
+      : `${item.tagName}`;
+
+    button.append(selector, meta);
+    fragment.appendChild(button);
+  }
+
+  dom.elementSelectorList.appendChild(fragment);
+
+  const selectedItem = filteredItems.find((item) => item.key === state.elements.selectedKey) || filteredItems[0];
+  renderSelectedElementDetails(selectedItem);
+}
+
+function selectElementByKey(key) {
+  if (typeof key !== "string" || key.length === 0) {
+    return;
+  }
+
+  state.elements.selectedKey = key;
+  renderElementSelectorList();
+}
+
+function renderSelectedElementDetails(item) {
+  if (!item || typeof item !== "object") {
+    dom.elementDetailsTitle.textContent = "Selected Element";
+    dom.elementHtmlView.textContent = "Select an element selector to view HTML.";
+    dom.elementCssView.textContent = "Select an element selector to view computed CSS.";
+    return;
+  }
+
+  dom.elementDetailsTitle.textContent = item.selector;
+  dom.elementHtmlView.textContent = item.html || "HTML is not available for this element.";
+  dom.elementCssView.textContent = item.css || "CSS is not available for this element.";
 }
 
 function resetPerformancePanel(message) {
@@ -1581,6 +1872,166 @@ function collectPerformanceInPageContext() {
         transferSize: navigationEntry ? Number(navigationEntry.transferSize) : null,
         resourceCount: performance.getEntriesByType("resource").length
       }
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
+function collectElementsInPageContext(maxItems = 450) {
+  try {
+    const safeLimit = Number.isFinite(maxItems)
+      ? Math.max(50, Math.min(1200, Math.round(maxItems)))
+      : 450;
+    const textPreviewLimit = 84;
+    const htmlPreviewLimit = 2400;
+
+    const cssProperties = [
+      "display",
+      "position",
+      "top",
+      "right",
+      "bottom",
+      "left",
+      "width",
+      "height",
+      "margin",
+      "padding",
+      "color",
+      "background-color",
+      "font-size",
+      "font-family",
+      "font-weight",
+      "line-height",
+      "border",
+      "border-radius",
+      "box-shadow",
+      "opacity",
+      "z-index"
+    ];
+
+    const normalizeWhitespace = (value) => {
+      return String(value || "").replace(/\s+/g, " ").trim();
+    };
+
+    const escapeIdentifier = (value) => {
+      const source = String(value || "");
+      if (!source) {
+        return "";
+      }
+
+      if (typeof CSS !== "undefined" && CSS && typeof CSS.escape === "function") {
+        return CSS.escape(source);
+      }
+
+      return source.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+    };
+
+    const getNthOfType = (element) => {
+      let index = 1;
+      let sibling = element.previousElementSibling;
+
+      while (sibling) {
+        if (sibling.tagName === element.tagName) {
+          index += 1;
+        }
+        sibling = sibling.previousElementSibling;
+      }
+
+      return index;
+    };
+
+    const buildSelector = (element) => {
+      const segments = [];
+      let current = element;
+      let depth = 0;
+
+      while (current && depth < 5) {
+        const tagName = String(current.tagName || "").toLowerCase();
+        if (!tagName || tagName === "html") {
+          break;
+        }
+
+        if (current.id) {
+          segments.unshift(`#${escapeIdentifier(current.id)}`);
+          break;
+        }
+
+        let segment = tagName;
+        const classes = Array.from(current.classList || [])
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((name) => escapeIdentifier(name));
+
+        if (classes.length > 0) {
+          segment += `.${classes.join(".")}`;
+        }
+
+        segment += `:nth-of-type(${getNthOfType(current)})`;
+        segments.unshift(segment);
+
+        current = current.parentElement;
+        depth += 1;
+      }
+
+      return segments.join(" > ") || String(element.tagName || "element").toLowerCase();
+    };
+
+    const formatComputedCss = (element) => {
+      const computedStyle = window.getComputedStyle(element);
+      const lines = cssProperties.map((property) => {
+        return `${property}: ${computedStyle.getPropertyValue(property)};`;
+      });
+
+      const inlineStyle = normalizeWhitespace(element.getAttribute("style") || "");
+      if (inlineStyle) {
+        lines.push(`inline-style: ${inlineStyle};`);
+      }
+
+      return lines.join("\n");
+    };
+
+    const allElements = Array.from(document.querySelectorAll("body *"));
+    const ignoredTags = new Set(["script", "style", "noscript", "meta", "link"]);
+    const items = [];
+
+    for (let index = 0; index < allElements.length && items.length < safeLimit; index += 1) {
+      const element = allElements[index];
+      const tagName = String(element.tagName || "").toLowerCase();
+      if (ignoredTags.has(tagName)) {
+        continue;
+      }
+
+      const selector = buildSelector(element);
+      const textSnippet = normalizeWhitespace(element.textContent || "").slice(0, textPreviewLimit);
+
+      let html = String(element.outerHTML || "").trim();
+      html = html.replace(/></g, ">\n<");
+      if (html.length > htmlPreviewLimit) {
+        html = `${html.slice(0, htmlPreviewLimit - 3)}...`;
+      }
+
+      items.push({
+        key: `${index}:${selector}`,
+        selector,
+        tagName,
+        textSnippet,
+        html,
+        css: formatComputedCss(element)
+      });
+    }
+
+    return {
+      ok: true,
+      capturedAt: Date.now(),
+      page: {
+        url: location.href,
+        title: document.title
+      },
+      elements: items
     };
   } catch (error) {
     return {
