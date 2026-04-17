@@ -14,6 +14,12 @@ const PERF_RELOAD_POLL_INTERVAL_MS = 1200;
 const PERF_RELOAD_NAV_CHANGE_GRACE_MS = 25;
 
 const ELEMENT_SELECTOR_SCAN_LIMIT = 450;
+const FULL_RENDER_CHUNK_SIZE = 72;
+const FULL_RENDER_CHUNK_DELAY_MS = 0;
+const ELEMENT_JS_EMPTY_MESSAGE = "No inline handlers or obvious JavaScript hooks detected for this element.";
+const ELEMENT_ANIMATION_EMPTY_MESSAGE = "No CSS animations, transitions, or active Web Animations detected for this element.";
+const ELEMENT_JS_LOADING_MESSAGE = "Loading JavaScript diagnostics for the selected element...";
+const ELEMENT_ANIMATION_LOADING_MESSAGE = "Loading animation diagnostics for the selected element...";
 
 const state = {
   targetTabId: null,
@@ -41,6 +47,8 @@ const state = {
   pendingEntries: [],
   flushTimer: null,
   rerenderTimer: null,
+  renderChunkTimer: null,
+  renderToken: 0,
   sourceRenderTimer: null,
   sourceFilter: "all",
   renderedRows: new Map(),
@@ -55,6 +63,7 @@ const state = {
     isOpen: false,
     isLoading: false,
     requestToken: 0,
+    detailsToken: 0,
     items: [],
     searchQuery: "",
     selectedKey: ""
@@ -112,8 +121,13 @@ const dom = {
   elementsCount: null,
   elementsSearchInput: null,
   elementDetailsTitle: null,
+  elementTagBadge: null,
+  elementJsBadge: null,
+  elementAnimationBadge: null,
   elementHtmlView: null,
   elementCssView: null,
+  elementJsView: null,
+  elementAnimationView: null,
   statTotal: null,
   statSuccess: null,
   statErrors: null,
@@ -225,8 +239,13 @@ function bindDom() {
   dom.elementsCount = document.getElementById("elementsCount");
   dom.elementsSearchInput = document.getElementById("elementsSearchInput");
   dom.elementDetailsTitle = document.getElementById("elementDetailsTitle");
+  dom.elementTagBadge = document.getElementById("elementTagBadge");
+  dom.elementJsBadge = document.getElementById("elementJsBadge");
+  dom.elementAnimationBadge = document.getElementById("elementAnimationBadge");
   dom.elementHtmlView = document.getElementById("elementHtmlView");
   dom.elementCssView = document.getElementById("elementCssView");
+  dom.elementJsView = document.getElementById("elementJsView");
+  dom.elementAnimationView = document.getElementById("elementAnimationView");
   dom.statTotal = document.getElementById("statTotal");
   dom.statSuccess = document.getElementById("statSuccess");
   dom.statErrors = document.getElementById("statErrors");
@@ -527,7 +546,7 @@ async function requestInitialState() {
   closeElementsPanel();
   resetAnalysisPanel("Run Analyze Network to generate actionable insights.");
   resetPerformancePanel("No performance data yet. Click Record.");
-  resetElementsPanel("Click Scan Elements to load selectors, HTML, and CSS from the tracked tab.");
+  resetElementsPanel("Click Scan Elements to load selectors, HTML, CSS, JavaScript hooks, and animations from the tracked tab.");
   fullRender();
   updateSummaryUi();
 }
@@ -641,6 +660,14 @@ function queueLogEntry(entry) {
 }
 
 function flushPendingEntries() {
+  if (state.renderChunkTimer !== null) {
+    drainPendingEntriesIntoState();
+    updateSummaryUi();
+    scheduleSourceRender();
+    scheduleFullRender();
+    return;
+  }
+
   if (state.rerenderTimer !== null) {
     drainPendingEntriesIntoState();
     updateSummaryUi();
@@ -702,6 +729,7 @@ function clearLocalLogs() {
   state.allLogs = [];
   state.pendingEntries = [];
   state.renderedRows.clear();
+  cancelOngoingFullRender();
   state.analysis.result = null;
   state.analysis.stale = false;
   clearAutoReanalyzeTimer();
@@ -724,30 +752,76 @@ function clearLocalLogs() {
   resetAnalysisPanel("No logs available. Capture traffic and run Analyze Network.");
 }
 
+function cancelOngoingFullRender() {
+  if (state.renderChunkTimer !== null) {
+    clearTimeout(state.renderChunkTimer);
+    state.renderChunkTimer = null;
+  }
+
+  state.renderToken += 1;
+}
+
 function fullRender() {
   if (state.flushTimer !== null) {
     clearTimeout(state.flushTimer);
     state.flushTimer = null;
   }
 
+  cancelOngoingFullRender();
   drainPendingEntriesIntoState();
   state.renderedRows.clear();
   dom.logRows.textContent = "";
 
-  const fragment = document.createDocumentFragment();
+  const filteredEntries = [];
   for (const entry of state.allLogs) {
     if (!matchesAllFilters(entry)) {
       continue;
     }
 
-    const row = createLogRow(entry);
-    state.renderedRows.set(entry.id, row);
-    fragment.appendChild(row);
+    filteredEntries.push(entry);
   }
 
-  dom.logRows.appendChild(fragment);
-  updateEmptyState();
-  updateSourceListUi();
+  if (filteredEntries.length === 0) {
+    updateEmptyState();
+    updateSourceListUi();
+    return;
+  }
+
+  const renderToken = state.renderToken + 1;
+  state.renderToken = renderToken;
+  let index = 0;
+
+  const appendChunk = () => {
+    if (renderToken !== state.renderToken) {
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const end = Math.min(index + FULL_RENDER_CHUNK_SIZE, filteredEntries.length);
+
+    for (; index < end; index += 1) {
+      const entry = filteredEntries[index];
+      const row = createLogRow(entry);
+      state.renderedRows.set(entry.id, row);
+      fragment.appendChild(row);
+    }
+
+    if (fragment.childNodes.length > 0) {
+      dom.logRows.appendChild(fragment);
+    }
+
+    updateEmptyState();
+
+    if (index < filteredEntries.length) {
+      state.renderChunkTimer = setTimeout(appendChunk, FULL_RENDER_CHUNK_DELAY_MS);
+      return;
+    }
+
+    state.renderChunkTimer = null;
+    updateSourceListUi();
+  };
+
+  appendChunk();
 }
 
 function scheduleFullRender() {
@@ -1168,6 +1242,7 @@ function resetElementsPanel(message) {
   state.elements.items = [];
   state.elements.searchQuery = "";
   state.elements.selectedKey = "";
+  state.elements.detailsToken += 1;
   dom.elementSelectorInput.value = "";
   dom.elementsSearchInput.value = "";
   dom.elementsMeta.textContent = message;
@@ -1199,7 +1274,7 @@ async function scanElementsSnapshot() {
 
   const requestToken = state.elements.requestToken + 1;
   state.elements.requestToken = requestToken;
-  setElementsLoading(true, "Scanning selectors, HTML, and CSS from the tracked tab...");
+  setElementsLoading(true, "Scanning selectors with HTML, CSS, JavaScript hooks, and animation signals from the tracked tab...");
 
   const snapshot = await captureElementsSnapshotFromTrackedTab();
 
@@ -1381,7 +1456,10 @@ async function captureElementByMouseFromTrackedTab() {
 }
 
 function renderElementsSnapshot(snapshot) {
-  const elements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
+  const rawElements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
+  const elements = rawElements
+    .map((item, index) => normalizeElementInspectorItem(item, `scan:${index}`))
+    .filter((item) => Boolean(item));
   const pageUrl = String(snapshot.page?.url || "");
   const host = isHttpUrl(pageUrl) ? getDomain(pageUrl) : "tracked tab";
   const capturedAtText = formatTime(snapshot.capturedAt || Date.now());
@@ -1415,14 +1493,11 @@ function renderElementSelectorSnapshot(snapshot) {
     return;
   }
 
-  const item = {
-    key: String(rawItem.key || `manual:${selector}`),
-    selector,
-    tagName: String(rawItem.tagName || "element"),
-    textSnippet: String(rawItem.textSnippet || ""),
-    html: String(rawItem.html || ""),
-    css: String(rawItem.css || "")
-  };
+  const item = normalizeElementInspectorItem(rawItem, "manual");
+  if (!item) {
+    dom.elementsMeta.textContent = "Selector lookup returned incomplete element details.";
+    return;
+  }
 
   upsertElementItem(item);
   state.elements.selectedKey = item.key;
@@ -1441,19 +1516,24 @@ function renderElementSelectorSnapshot(snapshot) {
 }
 
 function upsertElementItem(item) {
+  const normalizedItem = normalizeElementInspectorItem(item, "upsert");
+  if (!normalizedItem) {
+    return;
+  }
+
   const existingIndex = state.elements.items.findIndex((existingItem) => {
-    return existingItem && (existingItem.key === item.key || existingItem.selector === item.selector);
+    return existingItem && (existingItem.key === normalizedItem.key || existingItem.selector === normalizedItem.selector);
   });
 
   if (existingIndex >= 0) {
-    state.elements.items[existingIndex] = item;
+    state.elements.items[existingIndex] = normalizedItem;
 
     if (existingIndex > 0) {
       state.elements.items.splice(existingIndex, 1);
-      state.elements.items.unshift(item);
+      state.elements.items.unshift(normalizedItem);
     }
   } else {
-    state.elements.items.unshift(item);
+    state.elements.items.unshift(normalizedItem);
   }
 
   if (state.elements.items.length > ELEMENT_SELECTOR_SCAN_LIMIT) {
@@ -1513,7 +1593,14 @@ function renderElementSelectorList() {
       ? `${item.tagName} | ${item.textSnippet}`
       : `${item.tagName}`;
 
-    button.append(selector, meta);
+    const statusRow = document.createElement("div");
+    statusRow.className = "element-selector-status";
+    statusRow.append(
+      createElementSelectorStatusBadge("JS", item.hasJs),
+      createElementSelectorStatusBadge("ANIM", item.hasAnimations)
+    );
+
+    button.append(selector, meta, statusRow);
     fragment.appendChild(button);
   }
 
@@ -1533,6 +1620,7 @@ function selectElementByKey(key) {
 
   const selectedItem = state.elements.items.find((item) => item && item.key === key);
   if (selectedItem && selectedItem.selector) {
+    dom.elementSelectorInput.value = selectedItem.selector;
     void previewElementBySelectorInTrackedTab(selectedItem.selector);
   }
 }
@@ -1568,12 +1656,174 @@ function renderSelectedElementDetails(item) {
     dom.elementDetailsTitle.textContent = "Selected Element";
     dom.elementHtmlView.textContent = "Select an element selector to view HTML.";
     dom.elementCssView.textContent = "Select an element selector to view computed CSS.";
+    dom.elementJsView.textContent = "Select an element selector to inspect JavaScript handlers and hooks.";
+    dom.elementAnimationView.textContent = "Select an element selector to inspect CSS animations and transitions.";
+    applyElementInsightBadges(null);
     return;
   }
 
   dom.elementDetailsTitle.textContent = item.selector;
   dom.elementHtmlView.textContent = item.html || "HTML is not available for this element.";
   dom.elementCssView.textContent = item.css || "CSS is not available for this element.";
+  dom.elementJsView.textContent = item.diagnosticsPending
+    ? ELEMENT_JS_LOADING_MESSAGE
+    : item.js || (item.diagnosticsLoaded ? ELEMENT_JS_EMPTY_MESSAGE : ELEMENT_JS_LOADING_MESSAGE);
+  dom.elementAnimationView.textContent = item.diagnosticsPending
+    ? ELEMENT_ANIMATION_LOADING_MESSAGE
+    : item.animations || (item.diagnosticsLoaded ? ELEMENT_ANIMATION_EMPTY_MESSAGE : ELEMENT_ANIMATION_LOADING_MESSAGE);
+  applyElementInsightBadges(item);
+
+  if (!item.diagnosticsLoaded && !item.diagnosticsPending) {
+    void ensureElementDiagnosticsForSelected(item);
+  }
+}
+
+function normalizeElementInspectorItem(rawItem, fallbackPrefix = "element") {
+  if (!rawItem || typeof rawItem !== "object") {
+    return null;
+  }
+
+  const selector = String(rawItem.selector || "").trim();
+  if (selector.length === 0) {
+    return null;
+  }
+
+  const jsTextRaw = typeof rawItem.js === "string" ? rawItem.js.trim() : "";
+  const animationTextRaw = typeof rawItem.animations === "string" ? rawItem.animations.trim() : "";
+  const diagnosticsLoaded = Boolean(rawItem.diagnosticsLoaded);
+
+  return {
+    key: String(rawItem.key || `${fallbackPrefix}:${selector}`),
+    selector,
+    tagName: String(rawItem.tagName || "element").toLowerCase(),
+    textSnippet: String(rawItem.textSnippet || ""),
+    html: String(rawItem.html || ""),
+    css: String(rawItem.css || ""),
+    js: jsTextRaw || (diagnosticsLoaded ? ELEMENT_JS_EMPTY_MESSAGE : ELEMENT_JS_LOADING_MESSAGE),
+    animations: animationTextRaw || (diagnosticsLoaded ? ELEMENT_ANIMATION_EMPTY_MESSAGE : ELEMENT_ANIMATION_LOADING_MESSAGE),
+    hasJs: Boolean(rawItem.hasJs),
+    hasAnimations: Boolean(rawItem.hasAnimations),
+    diagnosticsLoaded,
+    diagnosticsPending: Boolean(rawItem.diagnosticsPending)
+  };
+}
+
+function createElementSelectorStatusBadge(label, isActive) {
+  const badge = document.createElement("span");
+  badge.className = `element-selector-status-badge ${isActive ? "is-active" : "is-inactive"}`;
+  badge.textContent = `${label}: ${isActive ? "ON" : "OFF"}`;
+  return badge;
+}
+
+function applyElementInsightBadges(item) {
+  if (!item) {
+    setElementInsightBadge(dom.elementTagBadge, "Tag: --", { active: false, variant: "tag" });
+    setElementInsightBadge(dom.elementJsBadge, "JavaScript: none", { active: false, variant: "js" });
+    setElementInsightBadge(dom.elementAnimationBadge, "Animation: none", { active: false, variant: "animation" });
+    return;
+  }
+
+  setElementInsightBadge(dom.elementTagBadge, `Tag: ${String(item.tagName || "--").toUpperCase()}`, {
+    active: true,
+    variant: "tag"
+  });
+  setElementInsightBadge(dom.elementJsBadge, `JavaScript: ${item.hasJs ? "detected" : "none"}`, {
+    active: item.hasJs,
+    variant: "js"
+  });
+  setElementInsightBadge(dom.elementAnimationBadge, `Animation: ${item.hasAnimations ? "detected" : "none"}`, {
+    active: item.hasAnimations,
+    variant: "animation"
+  });
+}
+
+function setElementInsightBadge(node, text, options = {}) {
+  if (!node) {
+    return;
+  }
+
+  const active = Boolean(options.active);
+  const variant = String(options.variant || "").toLowerCase();
+
+  node.textContent = text;
+  node.classList.remove("is-active", "is-inactive", "is-tag", "is-js", "is-animation");
+  node.classList.add(active ? "is-active" : "is-inactive");
+
+  if (variant === "tag") {
+    node.classList.add("is-tag");
+  } else if (variant === "js") {
+    node.classList.add("is-js");
+  } else if (variant === "animation") {
+    node.classList.add("is-animation");
+  }
+}
+
+async function ensureElementDiagnosticsForSelected(item) {
+  if (!item || typeof item !== "object" || item.diagnosticsLoaded || item.diagnosticsPending) {
+    return;
+  }
+
+  const selector = String(item.selector || "").trim();
+  if (selector.length === 0) {
+    return;
+  }
+
+  const detailsToken = state.elements.detailsToken + 1;
+  state.elements.detailsToken = detailsToken;
+  item.diagnosticsPending = true;
+
+  if (state.elements.selectedKey === item.key) {
+    renderSelectedElementDetails(item);
+  }
+
+  const snapshot = await captureElementBySelectorFromTrackedTab(selector);
+
+  if (detailsToken !== state.elements.detailsToken) {
+    item.diagnosticsPending = false;
+    return;
+  }
+
+  if (!snapshot || !snapshot.ok || !snapshot.element || typeof snapshot.element !== "object") {
+    item.diagnosticsLoaded = true;
+    item.diagnosticsPending = false;
+    item.js = "Unable to load JavaScript diagnostics for this selector right now.";
+    item.animations = "Unable to load animation diagnostics for this selector right now.";
+
+    if (state.elements.selectedKey === item.key) {
+      renderElementSelectorList();
+    }
+    return;
+  }
+
+  const enriched = normalizeElementInspectorItem(
+    {
+      ...snapshot.element,
+      key: item.key,
+      selector: item.selector,
+      diagnosticsLoaded: true
+    },
+    "selected"
+  );
+
+  if (!enriched) {
+    item.diagnosticsPending = false;
+    return;
+  }
+
+  item.tagName = enriched.tagName;
+  item.textSnippet = enriched.textSnippet;
+  item.html = enriched.html;
+  item.css = enriched.css;
+  item.js = enriched.js;
+  item.animations = enriched.animations;
+  item.hasJs = enriched.hasJs;
+  item.hasAnimations = enriched.hasAnimations;
+  item.diagnosticsLoaded = true;
+  item.diagnosticsPending = false;
+
+  if (state.elements.selectedKey === item.key) {
+    renderElementSelectorList();
+  }
 }
 
 function resetPerformancePanel(message) {
@@ -2509,11 +2759,244 @@ function collectElementBySelectorInPageContext(selectorInput) {
       "opacity",
       "z-index"
     ];
+    const eventPropertyNames = [
+      "onclick",
+      "ondblclick",
+      "onmousedown",
+      "onmouseup",
+      "onmouseenter",
+      "onmouseleave",
+      "onmouseover",
+      "onmouseout",
+      "onmousemove",
+      "oninput",
+      "onchange",
+      "onsubmit",
+      "onfocus",
+      "onblur",
+      "onkeydown",
+      "onkeyup",
+      "onkeypress",
+      "ontouchstart",
+      "ontouchend",
+      "onpointerdown",
+      "onpointerup",
+      "onanimationstart",
+      "onanimationend",
+      "ontransitionend"
+    ];
     const textPreviewLimit = 84;
     const htmlPreviewLimit = 2400;
 
     const normalizeWhitespace = (value) => {
       return String(value || "").replace(/\s+/g, " ").trim();
+    };
+
+    const truncateValue = (value, maxLength = 96) => {
+      const source = String(value || "");
+      if (source.length <= maxLength) {
+        return source;
+      }
+
+      return `${source.slice(0, Math.max(0, maxLength - 3))}...`;
+    };
+
+    const parseDurationTokenMs = (token) => {
+      const normalized = String(token || "").trim().toLowerCase();
+      if (!normalized) {
+        return 0;
+      }
+
+      if (normalized.endsWith("ms")) {
+        const parsedMs = Number.parseFloat(normalized);
+        return Number.isFinite(parsedMs) ? parsedMs : 0;
+      }
+
+      if (normalized.endsWith("s")) {
+        const parsedSeconds = Number.parseFloat(normalized);
+        return Number.isFinite(parsedSeconds) ? parsedSeconds * 1000 : 0;
+      }
+
+      const parsedRaw = Number.parseFloat(normalized);
+      return Number.isFinite(parsedRaw) ? parsedRaw : 0;
+    };
+
+    const hasNonZeroDuration = (value) => {
+      return String(value || "")
+        .split(",")
+        .some((token) => parseDurationTokenMs(token) > 0);
+    };
+
+    const formatMs = (value) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? `${Math.round(parsed)}ms` : "n/a";
+    };
+
+    const buildCssText = (targetElement, computedStyle) => {
+      const cssLines = cssProperties.map((property) => {
+        return `${property}: ${computedStyle.getPropertyValue(property)};`;
+      });
+
+      const inlineStyle = normalizeWhitespace(targetElement.getAttribute("style") || "");
+      if (inlineStyle) {
+        cssLines.push(`inline-style: ${inlineStyle};`);
+      }
+
+      return cssLines.join("\n");
+    };
+
+    const buildJavascriptDiagnostics = (targetElement) => {
+      const attributeNames = typeof targetElement.getAttributeNames === "function"
+        ? targetElement.getAttributeNames()
+        : [];
+      const inlineHandlers = [];
+      const jsHookAttributes = [];
+
+      for (const rawName of attributeNames) {
+        const attributeName = String(rawName || "").toLowerCase();
+        const attributeValue = normalizeWhitespace(targetElement.getAttribute(rawName) || "");
+        if (!attributeName || !attributeValue) {
+          continue;
+        }
+
+        if (attributeName.startsWith("on")) {
+          inlineHandlers.push(`${attributeName}="${truncateValue(attributeValue)}"`);
+          continue;
+        }
+
+        if (
+          attributeName.startsWith("data-") &&
+          /action|controller|handler|event|click|target|toggle|command|js/.test(attributeName)
+        ) {
+          jsHookAttributes.push(`${attributeName}="${truncateValue(attributeValue)}"`);
+        }
+      }
+
+      const propertyHandlers = eventPropertyNames.filter((propertyName) => {
+        return typeof targetElement[propertyName] === "function";
+      });
+
+      const hrefValue = normalizeWhitespace(targetElement.getAttribute("href") || "");
+      const hasJavascriptHref = hrefValue.toLowerCase().startsWith("javascript:");
+
+      const hasJs =
+        inlineHandlers.length > 0 ||
+        propertyHandlers.length > 0 ||
+        jsHookAttributes.length > 0 ||
+        hasJavascriptHref;
+
+      if (!hasJs) {
+        return {
+          hasJs: false,
+          text: "No inline handlers or obvious JavaScript hooks detected for this element."
+        };
+      }
+
+      const lines = [];
+      if (inlineHandlers.length > 0) {
+        lines.push(`Inline handlers (${inlineHandlers.length}):`);
+        for (const inlineHandler of inlineHandlers) {
+          lines.push(`- ${inlineHandler}`);
+        }
+      }
+
+      if (propertyHandlers.length > 0) {
+        lines.push(`Bound event properties: ${propertyHandlers.join(", ")}`);
+      }
+
+      if (jsHookAttributes.length > 0) {
+        lines.push(`JavaScript hook attributes (${jsHookAttributes.length}):`);
+        for (const hookAttribute of jsHookAttributes) {
+          lines.push(`- ${hookAttribute}`);
+        }
+      }
+
+      if (hasJavascriptHref) {
+        lines.push("javascript: URL detected in href.");
+      }
+
+      return {
+        hasJs: true,
+        text: lines.join("\n")
+      };
+    };
+
+    const buildAnimationDiagnostics = (targetElement, computedStyle) => {
+      const animationName = normalizeWhitespace(computedStyle.getPropertyValue("animation-name"));
+      const animationDuration = normalizeWhitespace(computedStyle.getPropertyValue("animation-duration"));
+      const animationDelay = normalizeWhitespace(computedStyle.getPropertyValue("animation-delay"));
+      const animationTiming = normalizeWhitespace(computedStyle.getPropertyValue("animation-timing-function"));
+      const animationIterationCount = normalizeWhitespace(computedStyle.getPropertyValue("animation-iteration-count"));
+      const animationPlayState = normalizeWhitespace(computedStyle.getPropertyValue("animation-play-state"));
+      const transitionProperty = normalizeWhitespace(computedStyle.getPropertyValue("transition-property"));
+      const transitionDuration = normalizeWhitespace(computedStyle.getPropertyValue("transition-duration"));
+      const transitionDelay = normalizeWhitespace(computedStyle.getPropertyValue("transition-delay"));
+
+      let activeAnimations = [];
+      if (typeof targetElement.getAnimations === "function") {
+        try {
+          activeAnimations = targetElement.getAnimations().filter((animation) => {
+            return animation && animation.playState !== "idle";
+          });
+        } catch {
+          activeAnimations = [];
+        }
+      }
+
+      const hasAnimationStyle =
+        animationName.length > 0 &&
+        animationName !== "none" &&
+        hasNonZeroDuration(animationDuration);
+      const hasTransitionStyle =
+        transitionProperty.length > 0 &&
+        transitionProperty !== "none" &&
+        hasNonZeroDuration(transitionDuration);
+      const hasAnimations = hasAnimationStyle || hasTransitionStyle || activeAnimations.length > 0;
+
+      if (!hasAnimations) {
+        return {
+          hasAnimations: false,
+          text: "No CSS animations, transitions, or active Web Animations detected for this element."
+        };
+      }
+
+      const lines = [
+        `animation-name: ${animationName || "none"}`,
+        `animation-duration: ${animationDuration || "0s"}`,
+        `animation-delay: ${animationDelay || "0s"}`,
+        `animation-timing-function: ${animationTiming || "initial"}`,
+        `animation-iteration-count: ${animationIterationCount || "1"}`,
+        `animation-play-state: ${animationPlayState || "running"}`,
+        `transition-property: ${transitionProperty || "none"}`,
+        `transition-duration: ${transitionDuration || "0s"}`,
+        `transition-delay: ${transitionDelay || "0s"}`
+      ];
+
+      if (activeAnimations.length > 0) {
+        lines.push(`Active Web Animations (${activeAnimations.length}):`);
+
+        for (const animation of activeAnimations) {
+          const timing =
+            animation.effect && typeof animation.effect.getTiming === "function"
+              ? animation.effect.getTiming()
+              : null;
+          const animationType =
+            animation.constructor && animation.constructor.name
+              ? animation.constructor.name
+              : "Animation";
+
+          lines.push(
+            `- ${animationType} | state=${animation.playState || "unknown"} | current=${formatMs(animation.currentTime)} | duration=${formatMs(
+              timing?.duration
+            )} | delay=${formatMs(timing?.delay)}`
+          );
+        }
+      }
+
+      return {
+        hasAnimations: true,
+        text: lines.join("\n")
+      };
     };
 
     let element = null;
@@ -2539,14 +3022,8 @@ function collectElementBySelectorInPageContext(selectorInput) {
     }
 
     const computedStyle = window.getComputedStyle(element);
-    const cssLines = cssProperties.map((property) => {
-      return `${property}: ${computedStyle.getPropertyValue(property)};`;
-    });
-
-    const inlineStyle = normalizeWhitespace(element.getAttribute("style") || "");
-    if (inlineStyle) {
-      cssLines.push(`inline-style: ${inlineStyle};`);
-    }
+    const javascriptDiagnostics = buildJavascriptDiagnostics(element);
+    const animationDiagnostics = buildAnimationDiagnostics(element, computedStyle);
 
     return {
       ok: true,
@@ -2561,7 +3038,12 @@ function collectElementBySelectorInPageContext(selectorInput) {
         tagName: String(element.tagName || "").toLowerCase(),
         textSnippet: normalizeWhitespace(element.textContent || "").slice(0, textPreviewLimit),
         html,
-        css: cssLines.join("\n")
+        css: buildCssText(element, computedStyle),
+        js: javascriptDiagnostics.text,
+        animations: animationDiagnostics.text,
+        hasJs: javascriptDiagnostics.hasJs,
+        hasAnimations: animationDiagnostics.hasAnimations,
+        diagnosticsLoaded: true
       }
     };
   } catch (error) {
@@ -2603,9 +3085,99 @@ function collectElementsInPageContext(maxItems = 450) {
       "opacity",
       "z-index"
     ];
+    const eventPropertyNames = [
+      "onclick",
+      "ondblclick",
+      "onmousedown",
+      "onmouseup",
+      "onmouseenter",
+      "onmouseleave",
+      "onmouseover",
+      "onmouseout",
+      "onmousemove",
+      "oninput",
+      "onchange",
+      "onsubmit",
+      "onfocus",
+      "onblur",
+      "onkeydown",
+      "onkeyup",
+      "onkeypress",
+      "ontouchstart",
+      "ontouchend",
+      "onpointerdown",
+      "onpointerup",
+      "onanimationstart",
+      "onanimationend",
+      "ontransitionend"
+    ];
 
     const normalizeWhitespace = (value) => {
       return String(value || "").replace(/\s+/g, " ").trim();
+    };
+
+    const parseDurationTokenMs = (token) => {
+      const normalized = String(token || "").trim().toLowerCase();
+      if (!normalized) {
+        return 0;
+      }
+
+      if (normalized.endsWith("ms")) {
+        const parsedMs = Number.parseFloat(normalized);
+        return Number.isFinite(parsedMs) ? parsedMs : 0;
+      }
+
+      if (normalized.endsWith("s")) {
+        const parsedSeconds = Number.parseFloat(normalized);
+        return Number.isFinite(parsedSeconds) ? parsedSeconds * 1000 : 0;
+      }
+
+      const parsedRaw = Number.parseFloat(normalized);
+      return Number.isFinite(parsedRaw) ? parsedRaw : 0;
+    };
+
+    const hasNonZeroDuration = (value) => {
+      return String(value || "")
+        .split(",")
+        .some((token) => parseDurationTokenMs(token) > 0);
+    };
+
+    const detectJsSignal = (element) => {
+      const attributeNames = typeof element.getAttributeNames === "function"
+        ? element.getAttributeNames()
+        : [];
+
+      for (const rawName of attributeNames) {
+        const attributeName = String(rawName || "").toLowerCase();
+        const attributeValue = normalizeWhitespace(element.getAttribute(rawName) || "");
+        if (!attributeName || !attributeValue) {
+          continue;
+        }
+
+        if (attributeName.startsWith("on")) {
+          return true;
+        }
+
+        if (
+          attributeName.startsWith("data-") &&
+          /action|controller|handler|event|click|target|toggle|command|js/.test(attributeName)
+        ) {
+          return true;
+        }
+      }
+
+      const hrefValue = normalizeWhitespace(element.getAttribute("href") || "");
+      if (hrefValue.toLowerCase().startsWith("javascript:")) {
+        return true;
+      }
+
+      for (const propertyName of eventPropertyNames) {
+        if (typeof element[propertyName] === "function") {
+          return true;
+        }
+      }
+
+      return false;
     };
 
     const escapeIdentifier = (value) => {
@@ -2682,7 +3254,19 @@ function collectElementsInPageContext(maxItems = 450) {
         lines.push(`inline-style: ${inlineStyle};`);
       }
 
-      return lines.join("\n");
+      const animationName = normalizeWhitespace(computedStyle.getPropertyValue("animation-name"));
+      const animationDuration = normalizeWhitespace(computedStyle.getPropertyValue("animation-duration"));
+      const transitionProperty = normalizeWhitespace(computedStyle.getPropertyValue("transition-property"));
+      const transitionDuration = normalizeWhitespace(computedStyle.getPropertyValue("transition-duration"));
+
+      const hasAnimations =
+        (animationName.length > 0 && animationName !== "none" && hasNonZeroDuration(animationDuration)) ||
+        (transitionProperty.length > 0 && transitionProperty !== "none" && hasNonZeroDuration(transitionDuration));
+
+      return {
+        cssText: lines.join("\n"),
+        hasAnimations
+      };
     };
 
     const allElements = Array.from(document.querySelectorAll("body *"));
@@ -2705,13 +3289,25 @@ function collectElementsInPageContext(maxItems = 450) {
         html = `${html.slice(0, htmlPreviewLimit - 3)}...`;
       }
 
+      const cssBundle = formatComputedCss(element);
+      const hasJs = detectJsSignal(element);
+
       items.push({
         key: `${index}:${selector}`,
         selector,
         tagName,
         textSnippet,
         html,
-        css: formatComputedCss(element)
+        css: cssBundle.cssText,
+        js: hasJs
+          ? "Potential JavaScript hooks detected. Select this element to inspect detailed handlers and hooks."
+          : "No inline handlers or obvious JavaScript hooks detected for this element.",
+        animations: cssBundle.hasAnimations
+          ? "Potential animation/transition styles detected. Select this element to inspect detailed animation diagnostics."
+          : "No CSS animations, transitions, or active Web Animations detected for this element.",
+        hasJs,
+        hasAnimations: cssBundle.hasAnimations,
+        diagnosticsLoaded: false
       });
     }
 

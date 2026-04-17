@@ -224,7 +224,7 @@
         <div>
           <p class="analysis-kicker">Elements</p>
           <h2>Elements Tab</h2>
-          <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML/CSS.</p>
+          <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML, CSS, JavaScript hooks, and animations.</p>
         </div>
         <div class="elements-head-actions">
           <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
@@ -259,16 +259,34 @@
           <div id="elementSelectorList" class="element-selector-list"></div>
         </section>
 
-        <section class="elements-detail-shell" aria-label="Element HTML and CSS details">
-          <h3 id="elementDetailsTitle">Selected Element</h3>
-          <article class="element-code-shell">
-            <p class="element-code-label">HTML</p>
-            <pre id="elementHtmlView" class="element-code-view">Select an element selector to view HTML.</pre>
-          </article>
-          <article class="element-code-shell">
-            <p class="element-code-label">CSS</p>
-            <pre id="elementCssView" class="element-code-view">Select an element selector to view computed CSS.</pre>
-          </article>
+        <section class="elements-detail-shell" aria-label="Element HTML, CSS, JavaScript, and animation details">
+          <div class="elements-detail-head">
+            <h3 id="elementDetailsTitle">Selected Element</h3>
+            <div class="element-insight-badges" aria-live="polite">
+              <span id="elementTagBadge" class="element-insight-badge is-tag is-active">Tag: --</span>
+              <span id="elementJsBadge" class="element-insight-badge is-js is-inactive">JavaScript: none</span>
+              <span id="elementAnimationBadge" class="element-insight-badge is-animation is-inactive">Animation: none</span>
+            </div>
+          </div>
+
+          <div class="element-detail-grid">
+            <article class="element-code-shell">
+              <p class="element-code-label">HTML</p>
+              <pre id="elementHtmlView" class="element-code-view">Select an element selector to view HTML.</pre>
+            </article>
+            <article class="element-code-shell">
+              <p class="element-code-label">CSS</p>
+              <pre id="elementCssView" class="element-code-view">Select an element selector to view computed CSS.</pre>
+            </article>
+            <article class="element-code-shell is-js-shell">
+              <p class="element-code-label">JavaScript</p>
+              <pre id="elementJsView" class="element-code-view">Select an element selector to inspect JavaScript handlers and hooks.</pre>
+            </article>
+            <article class="element-code-shell is-animation-shell">
+              <p class="element-code-label">Animations</p>
+              <pre id="elementAnimationView" class="element-code-view">Select an element selector to inspect CSS animations and transitions.</pre>
+            </article>
+          </div>
         </section>
       </div>
     </section>

@@ -759,21 +759,32 @@ function updateSetting(key, value) {
 }
 
 async function pruneStaleSessions() {
+  const trackedTabIds = Array.from(state.sessions.keys());
+  if (trackedTabIds.length === 0) {
+    return;
+  }
+
+  const tabChecks = await Promise.all(
+    trackedTabIds.map(async (tabId) => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        return { tabId, tab, ok: true };
+      } catch {
+        return { tabId, tab: null, ok: false };
+      }
+    })
+  );
+
   let changed = false;
 
-  for (const tabId of Array.from(state.sessions.keys())) {
-    try {
-      const tab = await chrome.tabs.get(tabId);
-      if (!isTrackableTab(tab)) {
-        state.sessions.delete(tabId);
-        clearRuntimeRequestBuffers({ targetTabId: tabId });
-        changed = true;
-      }
-    } catch {
-      state.sessions.delete(tabId);
-      clearRuntimeRequestBuffers({ targetTabId: tabId });
-      changed = true;
+  for (const check of tabChecks) {
+    if (check.ok && isTrackableTab(check.tab)) {
+      continue;
     }
+
+    state.sessions.delete(check.tabId);
+    clearRuntimeRequestBuffers({ targetTabId: check.tabId });
+    changed = true;
   }
 
   if (changed) {
@@ -823,9 +834,17 @@ const initPromise = (async () => {
     }
   }
 
-  await pruneStaleSessions();
   await rebuildViewerWindowMappings();
 })();
+
+initPromise
+  .then(() => {
+    // Maintenance runs after critical init so monitor window opens quickly.
+    void pruneStaleSessions();
+  })
+  .catch(() => {
+    // Ignore startup maintenance failures.
+  });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object") {

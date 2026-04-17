@@ -763,6 +763,16 @@ h1 {
   color: #b9d8f1;
 }
 
+#elementDetailsTitle {
+  font-family: "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+  text-transform: none;
+  letter-spacing: 0.12px;
+  color: #d8eeff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 #elementsCount {
   border-radius: 999px;
   border: 1px solid rgba(111, 173, 232, 0.36);
@@ -863,8 +873,94 @@ h1 {
   text-overflow: ellipsis;
 }
 
+.element-selector-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.element-selector-status-badge {
+  border-radius: 999px;
+  border: 1px solid rgba(111, 173, 232, 0.28);
+  background: rgba(14, 30, 45, 0.78);
+  color: #8eb1cb;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+}
+
+.element-selector-status-badge.is-active {
+  color: #dcfff0;
+  border-color: rgba(77, 231, 154, 0.7);
+  background: rgba(13, 61, 43, 0.74);
+}
+
+.element-selector-status-badge.is-inactive {
+  color: #87a9c2;
+  border-color: rgba(111, 173, 232, 0.24);
+  background: rgba(12, 25, 38, 0.7);
+}
+
 .elements-detail-shell {
   align-content: start;
+}
+
+.elements-detail-head {
+  display: grid;
+  gap: 8px;
+}
+
+.element-insight-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.element-insight-badge {
+  border-radius: 999px;
+  border: 1px solid rgba(111, 173, 232, 0.34);
+  background: rgba(14, 31, 48, 0.82);
+  color: #acd0eb;
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 9px;
+}
+
+.element-insight-badge.is-active {
+  color: #dff8ff;
+  border-color: rgba(82, 216, 255, 0.72);
+  background: linear-gradient(120deg, rgba(82, 216, 255, 0.24), rgba(82, 216, 255, 0.08));
+}
+
+.element-insight-badge.is-js.is-active {
+  border-color: rgba(77, 231, 154, 0.72);
+  background: linear-gradient(120deg, rgba(77, 231, 154, 0.28), rgba(77, 231, 154, 0.1));
+  color: #e1ffe9;
+}
+
+.element-insight-badge.is-animation.is-active {
+  border-color: rgba(255, 190, 104, 0.75);
+  background: linear-gradient(120deg, rgba(255, 190, 104, 0.28), rgba(255, 190, 104, 0.08));
+  color: #ffe8c3;
+}
+
+.element-insight-badge.is-inactive {
+  color: #82a7c2;
+  border-color: rgba(111, 173, 232, 0.24);
+  background: rgba(13, 27, 41, 0.7);
+}
+
+.element-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 0;
 }
 
 .element-code-shell {
@@ -875,6 +971,16 @@ h1 {
   display: grid;
   gap: 7px;
   min-height: 0;
+}
+
+.element-code-shell.is-js-shell {
+  border-color: rgba(77, 231, 154, 0.33);
+  background: rgba(11, 38, 31, 0.5);
+}
+
+.element-code-shell.is-animation-shell {
+  border-color: rgba(255, 190, 104, 0.34);
+  background: rgba(46, 33, 16, 0.52);
 }
 
 .element-code-label {
@@ -897,7 +1003,7 @@ h1 {
   line-height: 1.45;
   white-space: pre-wrap;
   overflow: auto;
-  max-height: 210px;
+  max-height: 180px;
 }
 
 .performance-metrics-shell {
@@ -1544,6 +1650,10 @@ tbody tr:hover {
   }
 
   .elements-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .element-detail-grid {
     grid-template-columns: 1fr;
   }
 
