@@ -11,6 +11,7 @@ const AUTO_REANALYZE_DELAY_MS = 600;
 const BENIGN_ERROR_MARKERS = ["ERR_ABORTED", "NS_BINDING_ABORTED", "ERR_BLOCKED_BY_CLIENT"];
 const PERF_RELOAD_CAPTURE_WAIT_MS = 22000;
 const PERF_RELOAD_POLL_INTERVAL_MS = 1200;
+const PERF_RELOAD_NAV_CHANGE_GRACE_MS = 25;
 
 const state = {
   targetTabId: null,
@@ -267,7 +268,7 @@ function bindEvents() {
 
   dom.openPerformanceBtn.addEventListener("click", () => {
     openPerformancePanel();
-    void recordPerformanceSnapshot();
+    void recordPerformanceSnapshot({ withReload: true });
   });
 
   dom.reAnalyzeBtn.addEventListener("click", () => {
@@ -1081,6 +1082,9 @@ async function recordPerformanceSnapshot(options = {}) {
   let snapshot = null;
 
   if (withReload) {
+    const baselineSnapshot = await capturePerformanceSnapshotFromTrackedTab();
+    const baselineTimeOrigin = Number(baselineSnapshot?.page?.timeOrigin);
+
     const reloadResult = await sendMessage({ type: "reload-tracked-tab" });
     if (!reloadResult || !reloadResult.ok) {
       if (requestToken === state.performance.requestToken) {
@@ -1090,18 +1094,23 @@ async function recordPerformanceSnapshot(options = {}) {
     }
 
     const startedAt = Date.now();
+    let gotFreshNavigationSnapshot = false;
+
     while (Date.now() - startedAt < PERF_RELOAD_CAPTURE_WAIT_MS) {
       await sleep(PERF_RELOAD_POLL_INTERVAL_MS);
       snapshot = await capturePerformanceSnapshotFromTrackedTab();
 
-      if (snapshot && snapshot.ok) {
-        const readyState = String(snapshot.page?.readyState || "").toLowerCase();
-        const hasPaintMetrics = Number.isFinite(snapshot.metrics?.lcp) || Number.isFinite(snapshot.metrics?.fcp);
-
-        if (readyState === "complete" && hasPaintMetrics) {
-          break;
-        }
+      if (isFreshPerformanceReloadSnapshot(snapshot, baselineTimeOrigin, startedAt)) {
+        gotFreshNavigationSnapshot = true;
+        break;
       }
+    }
+
+    if (!gotFreshNavigationSnapshot) {
+      snapshot = {
+        ok: false,
+        error: "Fresh reload metrics not ready yet. Wait a moment and click Record and Reload again."
+      };
     }
   } else {
     snapshot = await capturePerformanceSnapshotFromTrackedTab();
@@ -1120,6 +1129,33 @@ async function recordPerformanceSnapshot(options = {}) {
   state.performance.snapshot = snapshot;
   renderPerformanceSnapshot(snapshot, { withReload });
   setPerformanceLoading(false, dom.performanceMeta.textContent);
+}
+
+function isFreshPerformanceReloadSnapshot(snapshot, baselineTimeOrigin, reloadStartedAt) {
+  if (!snapshot || !snapshot.ok) {
+    return false;
+  }
+
+  const readyState = String(snapshot.page?.readyState || "").toLowerCase();
+  const hasPaintMetrics = Number.isFinite(snapshot.metrics?.lcp) || Number.isFinite(snapshot.metrics?.fcp);
+
+  if (readyState !== "complete" || !hasPaintMetrics) {
+    return false;
+  }
+
+  const captureTs = Number(snapshot.capturedAt);
+  if (Number.isFinite(captureTs) && captureTs < reloadStartedAt) {
+    return false;
+  }
+
+  const snapshotTimeOrigin = Number(snapshot.page?.timeOrigin);
+  if (Number.isFinite(baselineTimeOrigin) && Number.isFinite(snapshotTimeOrigin)) {
+    if (snapshotTimeOrigin <= baselineTimeOrigin + PERF_RELOAD_NAV_CHANGE_GRACE_MS) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 async function capturePerformanceSnapshotFromTrackedTab() {
@@ -1156,6 +1192,7 @@ function renderPerformanceSnapshot(snapshot, options = {}) {
   const metrics = snapshot.metrics && typeof snapshot.metrics === "object" ? snapshot.metrics : {};
   const pageUrl = String(snapshot.page?.url || "");
   const pageHost = isHttpUrl(pageUrl) ? getDomain(pageUrl) : "tracked tab";
+  const pagePath = getPerformancePathLabel(pageUrl);
   const capturedAtText = formatTime(snapshot.capturedAt || Date.now());
 
   const lcpState = classifyDurationMetric(metrics.lcp, 2500, 4000);
@@ -1200,10 +1237,24 @@ function renderPerformanceSnapshot(snapshot, options = {}) {
   );
 
   const modeLabel = options.withReload ? "after reload" : "live snapshot";
-  dom.performanceMeta.textContent = `Captured ${modeLabel} for ${pageHost} at ${capturedAtText}.`;
+  dom.performanceMeta.textContent = `Captured ${modeLabel} for ${pageHost}${pagePath} at ${capturedAtText}.`;
 
   const insights = buildPerformanceInsights(metrics, snapshot, pageHost);
   renderPerformanceInsights(insights);
+}
+
+function getPerformancePathLabel(url) {
+  if (!isHttpUrl(url)) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname || "/";
+    return path === "/" ? "" : path;
+  } catch {
+    return "";
+  }
 }
 
 function setPerformanceMetricCard(card, valueNode, noteNode, valueText, noteText, stateClass) {
@@ -1291,6 +1342,7 @@ function formatClsMetric(value) {
 function buildPerformanceInsights(metrics, snapshot, pageHost) {
   const insights = [];
   const resourceCount = Number(metrics.resourceCount);
+  const transferSizeBytes = Number(metrics.transferSize);
 
   if (Number.isFinite(metrics.lcp) && metrics.lcp > 2500) {
     insights.push({
@@ -1317,6 +1369,13 @@ function buildPerformanceInsights(metrics, snapshot, pageHost) {
     insights.push({
       severity: "warning",
       text: `${resourceCount} resources loaded. Consider bundling, caching, and lazy-loading to reduce startup pressure.`
+    });
+  }
+
+  if (Number.isFinite(transferSizeBytes) && transferSizeBytes > 0) {
+    insights.push({
+      severity: "good",
+      text: `Approx transfer size: ${formatBytes(transferSizeBytes)} across current navigation.`
     });
   }
 
@@ -1479,6 +1538,16 @@ function collectPerformanceInPageContext() {
       }
     }
 
+    if (!Number.isFinite(store.inp)) {
+      const firstInputEntries = performance.getEntriesByType("first-input");
+      for (const firstInput of firstInputEntries) {
+        const delay = Number(firstInput.processingStart) - Number(firstInput.startTime);
+        if (Number.isFinite(delay) && (!Number.isFinite(store.inp) || delay > store.inp)) {
+          store.inp = delay;
+        }
+      }
+    }
+
     const paintEntries = performance.getEntriesByType("paint");
     for (const paintEntry of paintEntries) {
       if (paintEntry && paintEntry.name === "first-contentful-paint") {
@@ -1497,7 +1566,9 @@ function collectPerformanceInPageContext() {
       page: {
         url: location.href,
         title: document.title,
-        readyState: document.readyState
+        readyState: document.readyState,
+        timeOrigin: performance.timeOrigin,
+        navigationType: navigationEntry ? navigationEntry.type : null
       },
       metrics: {
         lcp: Number.isFinite(store.lcp) ? store.lcp : null,
@@ -1507,6 +1578,7 @@ function collectPerformanceInPageContext() {
         ttfb: navigationEntry ? Number(navigationEntry.responseStart) : null,
         domContentLoaded: navigationEntry ? Number(navigationEntry.domContentLoadedEventEnd) : null,
         load: navigationEntry ? Number(navigationEntry.loadEventEnd) : null,
+        transferSize: navigationEntry ? Number(navigationEntry.transferSize) : null,
         resourceCount: performance.getEntriesByType("resource").length
       }
     };
