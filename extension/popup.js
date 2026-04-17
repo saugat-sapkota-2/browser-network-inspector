@@ -9,6 +9,8 @@ const MAX_INSIGHT_ITEMS_PER_GROUP = 3;
 const MIN_SCORE_BAR_WIDTH = 6;
 const AUTO_REANALYZE_DELAY_MS = 600;
 const BENIGN_ERROR_MARKERS = ["ERR_ABORTED", "NS_BINDING_ABORTED", "ERR_BLOCKED_BY_CLIENT"];
+const PERF_RELOAD_CAPTURE_WAIT_MS = 22000;
+const PERF_RELOAD_POLL_INTERVAL_MS = 1200;
 
 const state = {
   targetTabId: null,
@@ -40,6 +42,12 @@ const state = {
   sourceFilter: "all",
   renderedRows: new Map(),
   autoReanalyzeTimer: null,
+  performance: {
+    isOpen: false,
+    isLoading: false,
+    requestToken: 0,
+    snapshot: null
+  },
   analysis: {
     aiMode: true,
     deepMode: true,
@@ -58,8 +66,28 @@ const dom = {
   autoClearToggle: null,
   autoClearStateLabel: null,
   analyzeNetworkBtn: null,
+  openPerformanceBtn: null,
   aiModeToggle: null,
   aiModeLabel: null,
+  performanceBackdrop: null,
+  performancePanel: null,
+  performanceMeta: null,
+  closePerformanceBtn: null,
+  recordPerformanceBtn: null,
+  recordReloadPerformanceBtn: null,
+  performanceInsights: null,
+  perfCardLcp: null,
+  perfCardCls: null,
+  perfCardInp: null,
+  perfCardFcp: null,
+  perfLcpValue: null,
+  perfClsValue: null,
+  perfInpValue: null,
+  perfFcpValue: null,
+  perfLcpNote: null,
+  perfClsNote: null,
+  perfInpNote: null,
+  perfFcpNote: null,
   statTotal: null,
   statSuccess: null,
   statErrors: null,
@@ -136,8 +164,28 @@ function bindDom() {
   dom.autoClearToggle = document.getElementById("autoClearToggle");
   dom.autoClearStateLabel = document.getElementById("autoClearStateLabel");
   dom.analyzeNetworkBtn = document.getElementById("analyzeNetworkBtn");
+  dom.openPerformanceBtn = document.getElementById("openPerformanceBtn");
   dom.aiModeToggle = document.getElementById("aiModeToggle");
   dom.aiModeLabel = document.getElementById("aiModeLabel");
+  dom.performanceBackdrop = document.getElementById("performanceBackdrop");
+  dom.performancePanel = document.getElementById("performancePanel");
+  dom.performanceMeta = document.getElementById("performanceMeta");
+  dom.closePerformanceBtn = document.getElementById("closePerformanceBtn");
+  dom.recordPerformanceBtn = document.getElementById("recordPerformanceBtn");
+  dom.recordReloadPerformanceBtn = document.getElementById("recordReloadPerformanceBtn");
+  dom.performanceInsights = document.getElementById("performanceInsights");
+  dom.perfCardLcp = document.getElementById("perfCardLcp");
+  dom.perfCardCls = document.getElementById("perfCardCls");
+  dom.perfCardInp = document.getElementById("perfCardInp");
+  dom.perfCardFcp = document.getElementById("perfCardFcp");
+  dom.perfLcpValue = document.getElementById("perfLcpValue");
+  dom.perfClsValue = document.getElementById("perfClsValue");
+  dom.perfInpValue = document.getElementById("perfInpValue");
+  dom.perfFcpValue = document.getElementById("perfFcpValue");
+  dom.perfLcpNote = document.getElementById("perfLcpNote");
+  dom.perfClsNote = document.getElementById("perfClsNote");
+  dom.perfInpNote = document.getElementById("perfInpNote");
+  dom.perfFcpNote = document.getElementById("perfFcpNote");
   dom.statTotal = document.getElementById("statTotal");
   dom.statSuccess = document.getElementById("statSuccess");
   dom.statErrors = document.getElementById("statErrors");
@@ -217,6 +265,11 @@ function bindEvents() {
     openAnalysisPanel();
   });
 
+  dom.openPerformanceBtn.addEventListener("click", () => {
+    openPerformancePanel();
+    void recordPerformanceSnapshot();
+  });
+
   dom.reAnalyzeBtn.addEventListener("click", () => {
     runNetworkAnalysis();
     openAnalysisPanel();
@@ -253,8 +306,33 @@ function bindEvents() {
     closeAnalysisPanel();
   });
 
+  dom.recordPerformanceBtn.addEventListener("click", () => {
+    void recordPerformanceSnapshot();
+  });
+
+  dom.recordReloadPerformanceBtn.addEventListener("click", () => {
+    void recordPerformanceSnapshot({ withReload: true });
+  });
+
+  dom.closePerformanceBtn.addEventListener("click", () => {
+    closePerformancePanel();
+  });
+
+  dom.performanceBackdrop.addEventListener("click", () => {
+    closePerformancePanel();
+  });
+
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && state.analysis.isOpen) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (state.performance.isOpen) {
+      closePerformancePanel();
+      return;
+    }
+
+    if (state.analysis.isOpen) {
       closeAnalysisPanel();
     }
   });
@@ -351,7 +429,9 @@ async function requestInitialState() {
   syncFilterUi();
   syncSourceFilterUi();
   closeAnalysisPanel();
+  closePerformancePanel();
   resetAnalysisPanel("Run Analyze Network to generate actionable insights.");
+  resetPerformancePanel("No performance data yet. Click Record.");
   fullRender();
   updateSummaryUi();
 }
@@ -415,6 +495,8 @@ function onBackgroundMessage(message) {
     }
 
     clearLocalLogs();
+    closePerformancePanel();
+    resetPerformancePanel("Tracked tab closed. Open a target tab and record again.");
     state.summary = {
       total: 0,
       success: 0,
@@ -904,6 +986,10 @@ function scheduleAutoReanalyze() {
 }
 
 function openAnalysisPanel() {
+  if (state.performance.isOpen) {
+    closePerformancePanel();
+  }
+
   state.analysis.isOpen = true;
   dom.analysisPanel.classList.remove("hidden");
   dom.analysisBackdrop.classList.remove("hidden");
@@ -924,6 +1010,512 @@ function closeAnalysisPanel() {
   dom.analysisBackdrop.classList.add("hidden");
   dom.analysisPanel.setAttribute("aria-hidden", "true");
   document.body.classList.remove("analysis-open");
+}
+
+function openPerformancePanel() {
+  if (state.analysis.isOpen) {
+    closeAnalysisPanel();
+  }
+
+  state.performance.isOpen = true;
+  dom.performancePanel.classList.remove("hidden");
+  dom.performanceBackdrop.classList.remove("hidden");
+  dom.performancePanel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("performance-open");
+  dom.closePerformanceBtn.focus();
+}
+
+function closePerformancePanel() {
+  state.performance.isOpen = false;
+  dom.performancePanel.classList.add("hidden");
+  dom.performanceBackdrop.classList.add("hidden");
+  dom.performancePanel.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("performance-open");
+}
+
+function resetPerformancePanel(message) {
+  dom.performanceMeta.textContent = message;
+  setPerformanceMetricCard(dom.perfCardLcp, dom.perfLcpValue, dom.perfLcpNote, "--", "Waiting for data...", "unknown");
+  setPerformanceMetricCard(dom.perfCardCls, dom.perfClsValue, dom.perfClsNote, "--", "Waiting for data...", "unknown");
+  setPerformanceMetricCard(dom.perfCardInp, dom.perfInpValue, dom.perfInpNote, "--", "Waiting for data...", "unknown");
+  setPerformanceMetricCard(dom.perfCardFcp, dom.perfFcpValue, dom.perfFcpNote, "--", "Waiting for data...", "unknown");
+
+  dom.performanceInsights.textContent = "";
+  const empty = document.createElement("li");
+  empty.className = "analysis-empty";
+  empty.textContent = "No performance data yet. Click Record.";
+  dom.performanceInsights.appendChild(empty);
+}
+
+function setPerformanceLoading(isLoading, message) {
+  state.performance.isLoading = Boolean(isLoading);
+  dom.recordPerformanceBtn.disabled = state.performance.isLoading;
+  dom.recordReloadPerformanceBtn.disabled = state.performance.isLoading;
+  dom.recordPerformanceBtn.classList.toggle("is-running", state.performance.isLoading);
+  dom.recordReloadPerformanceBtn.classList.toggle("is-running", state.performance.isLoading);
+
+  if (typeof message === "string" && message.length > 0) {
+    dom.performanceMeta.textContent = message;
+  }
+}
+
+async function recordPerformanceSnapshot(options = {}) {
+  const withReload = Boolean(options.withReload);
+  const targetTabId = Number(state.targetTabId);
+
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    resetPerformancePanel("No tracked tab available for performance capture.");
+    return;
+  }
+
+  const requestToken = state.performance.requestToken + 1;
+  state.performance.requestToken = requestToken;
+
+  setPerformanceLoading(
+    true,
+    withReload
+      ? "Reloading tracked tab and capturing performance metrics..."
+      : "Recording performance metrics from tracked tab..."
+  );
+
+  let snapshot = null;
+
+  if (withReload) {
+    const reloadResult = await sendMessage({ type: "reload-tracked-tab" });
+    if (!reloadResult || !reloadResult.ok) {
+      if (requestToken === state.performance.requestToken) {
+        setPerformanceLoading(false, "Unable to reload tracked tab for performance capture.");
+      }
+      return;
+    }
+
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < PERF_RELOAD_CAPTURE_WAIT_MS) {
+      await sleep(PERF_RELOAD_POLL_INTERVAL_MS);
+      snapshot = await capturePerformanceSnapshotFromTrackedTab();
+
+      if (snapshot && snapshot.ok) {
+        const readyState = String(snapshot.page?.readyState || "").toLowerCase();
+        const hasPaintMetrics = Number.isFinite(snapshot.metrics?.lcp) || Number.isFinite(snapshot.metrics?.fcp);
+
+        if (readyState === "complete" && hasPaintMetrics) {
+          break;
+        }
+      }
+    }
+  } else {
+    snapshot = await capturePerformanceSnapshotFromTrackedTab();
+  }
+
+  if (requestToken !== state.performance.requestToken) {
+    return;
+  }
+
+  if (!snapshot || !snapshot.ok) {
+    const reason = snapshot && snapshot.error ? snapshot.error : "Unknown capture error.";
+    setPerformanceLoading(false, `Performance capture failed: ${reason}`);
+    return;
+  }
+
+  state.performance.snapshot = snapshot;
+  renderPerformanceSnapshot(snapshot, { withReload });
+  setPerformanceLoading(false, dom.performanceMeta.textContent);
+}
+
+async function capturePerformanceSnapshotFromTrackedTab() {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return { ok: false, error: "No tracked tab selected." };
+  }
+
+  if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") {
+    return { ok: false, error: "Scripting API unavailable. Add scripting permission and reload extension." };
+  }
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: collectPerformanceInPageContext
+    });
+
+    const firstResult = Array.isArray(results) && results.length > 0 ? results[0].result : null;
+    if (!firstResult || typeof firstResult !== "object") {
+      return { ok: false, error: "No metrics returned from page." };
+    }
+
+    return firstResult;
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
+function renderPerformanceSnapshot(snapshot, options = {}) {
+  const metrics = snapshot.metrics && typeof snapshot.metrics === "object" ? snapshot.metrics : {};
+  const pageUrl = String(snapshot.page?.url || "");
+  const pageHost = isHttpUrl(pageUrl) ? getDomain(pageUrl) : "tracked tab";
+  const capturedAtText = formatTime(snapshot.capturedAt || Date.now());
+
+  const lcpState = classifyDurationMetric(metrics.lcp, 2500, 4000);
+  const clsState = classifyClsMetric(metrics.cls);
+  const inpState = classifyDurationMetric(metrics.inp, 200, 500);
+  const fcpState = classifyDurationMetric(metrics.fcp, 1800, 3000);
+
+  setPerformanceMetricCard(
+    dom.perfCardLcp,
+    dom.perfLcpValue,
+    dom.perfLcpNote,
+    formatDurationMetric(metrics.lcp),
+    describeMetricState("LCP", lcpState, "<= 2.5s is good"),
+    lcpState
+  );
+
+  setPerformanceMetricCard(
+    dom.perfCardCls,
+    dom.perfClsValue,
+    dom.perfClsNote,
+    formatClsMetric(metrics.cls),
+    describeMetricState("CLS", clsState, "<= 0.10 is good"),
+    clsState
+  );
+
+  setPerformanceMetricCard(
+    dom.perfCardInp,
+    dom.perfInpValue,
+    dom.perfInpNote,
+    formatDurationMetric(metrics.inp),
+    describeMetricState("INP", inpState, "<= 200ms is good"),
+    inpState
+  );
+
+  setPerformanceMetricCard(
+    dom.perfCardFcp,
+    dom.perfFcpValue,
+    dom.perfFcpNote,
+    formatDurationMetric(metrics.fcp),
+    describeMetricState("FCP", fcpState, "<= 1.8s is good"),
+    fcpState
+  );
+
+  const modeLabel = options.withReload ? "after reload" : "live snapshot";
+  dom.performanceMeta.textContent = `Captured ${modeLabel} for ${pageHost} at ${capturedAtText}.`;
+
+  const insights = buildPerformanceInsights(metrics, snapshot, pageHost);
+  renderPerformanceInsights(insights);
+}
+
+function setPerformanceMetricCard(card, valueNode, noteNode, valueText, noteText, stateClass) {
+  valueNode.textContent = valueText;
+  noteNode.textContent = noteText;
+
+  card.classList.remove("is-good", "is-warning", "is-error");
+  if (stateClass === "good") {
+    card.classList.add("is-good");
+  } else if (stateClass === "warning") {
+    card.classList.add("is-warning");
+  } else if (stateClass === "error") {
+    card.classList.add("is-error");
+  }
+}
+
+function classifyDurationMetric(value, goodLimit, warningLimit) {
+  if (!Number.isFinite(value)) {
+    return "unknown";
+  }
+
+  if (value <= goodLimit) {
+    return "good";
+  }
+
+  if (value <= warningLimit) {
+    return "warning";
+  }
+
+  return "error";
+}
+
+function classifyClsMetric(value) {
+  if (!Number.isFinite(value)) {
+    return "unknown";
+  }
+
+  if (value <= 0.1) {
+    return "good";
+  }
+
+  if (value <= 0.25) {
+    return "warning";
+  }
+
+  return "error";
+}
+
+function describeMetricState(metricName, stateClass, fallback) {
+  if (stateClass === "good") {
+    return `${metricName} is good.`;
+  }
+
+  if (stateClass === "warning") {
+    return `${metricName} needs improvement.`;
+  }
+
+  if (stateClass === "error") {
+    return `${metricName} is poor.`;
+  }
+
+  return `${metricName} not available (${fallback}).`;
+}
+
+function formatDurationMetric(value) {
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(2)} s`;
+  }
+
+  return `${Math.round(value)} ms`;
+}
+
+function formatClsMetric(value) {
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+
+  return Number(value).toFixed(2);
+}
+
+function buildPerformanceInsights(metrics, snapshot, pageHost) {
+  const insights = [];
+  const resourceCount = Number(metrics.resourceCount);
+
+  if (Number.isFinite(metrics.lcp) && metrics.lcp > 2500) {
+    insights.push({
+      severity: metrics.lcp > 4000 ? "error" : "warning",
+      text: `LCP is elevated on ${pageHost}. Consider optimizing hero image, critical CSS, and server response timing.`
+    });
+  }
+
+  if (Number.isFinite(metrics.cls) && metrics.cls > 0.1) {
+    insights.push({
+      severity: metrics.cls > 0.25 ? "error" : "warning",
+      text: "Layout shifts detected. Reserve space for media/ads and avoid late font swaps to reduce CLS."
+    });
+  }
+
+  if (Number.isFinite(metrics.inp) && metrics.inp > 200) {
+    insights.push({
+      severity: metrics.inp > 500 ? "error" : "warning",
+      text: "Interaction latency is high. Reduce main-thread work during user input and split long tasks."
+    });
+  }
+
+  if (Number.isFinite(resourceCount) && resourceCount > 120) {
+    insights.push({
+      severity: "warning",
+      text: `${resourceCount} resources loaded. Consider bundling, caching, and lazy-loading to reduce startup pressure.`
+    });
+  }
+
+  if (
+    Number.isFinite(metrics.lcp) && metrics.lcp <= 2500 &&
+    Number.isFinite(metrics.cls) && metrics.cls <= 0.1 &&
+    Number.isFinite(metrics.inp) && metrics.inp <= 200
+  ) {
+    insights.push({
+      severity: "good",
+      text: `Core web vitals look healthy for ${pageHost}. Keep this as your baseline.`
+    });
+  }
+
+  const navDcl = Number(metrics.domContentLoaded);
+  const navLoad = Number(metrics.load);
+  if (Number.isFinite(navDcl) || Number.isFinite(navLoad)) {
+    const dclText = Number.isFinite(navDcl) ? formatDurationMetric(navDcl) : "--";
+    const loadText = Number.isFinite(navLoad) ? formatDurationMetric(navLoad) : "--";
+    insights.push({
+      severity: "good",
+      text: `Navigation timings: DOMContentLoaded ${dclText}, load ${loadText}.`
+    });
+  }
+
+  insights.push({
+    severity: "good",
+    text: "CPU/network throttling controls match DevTools UI but are display-only in this extension panel."
+  });
+
+  if (insights.length === 0) {
+    insights.push({
+      severity: "warning",
+      text: "Performance metrics not yet available for this page. Try Record and Reload."
+    });
+  }
+
+  return insights;
+}
+
+function renderPerformanceInsights(insights) {
+  dom.performanceInsights.textContent = "";
+
+  if (!Array.isArray(insights) || insights.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "analysis-empty";
+    empty.textContent = "No performance insights available.";
+    dom.performanceInsights.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const insight of insights) {
+    const item = document.createElement("li");
+    item.className = `analysis-insight is-${insight.severity}`;
+
+    const badge = document.createElement("span");
+    badge.className = "analysis-insight-badge";
+    badge.textContent = getInsightBadge(insight.severity);
+
+    const text = document.createElement("p");
+    text.textContent = insight.text;
+
+    item.append(badge, text);
+    fragment.appendChild(item);
+  }
+
+  dom.performanceInsights.appendChild(fragment);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function collectPerformanceInPageContext() {
+  try {
+    const storeKey = "__nmlPerfVitals";
+    const store = window[storeKey] || (window[storeKey] = {
+      installed: false,
+      lcp: null,
+      cls: 0,
+      inp: null,
+      fcp: null
+    });
+
+    if (!store.installed) {
+      store.installed = true;
+
+      try {
+        const lcpObserver = new PerformanceObserver((entryList) => {
+          const entries = entryList.getEntries();
+          if (entries.length > 0) {
+            const latest = entries[entries.length - 1];
+            const startTime = Number(latest.startTime);
+            if (Number.isFinite(startTime)) {
+              store.lcp = startTime;
+            }
+          }
+        });
+        lcpObserver.observe({ type: "largest-contentful-paint", buffered: true });
+      } catch {
+        // Unsupported on current page.
+      }
+
+      try {
+        const clsObserver = new PerformanceObserver((entryList) => {
+          for (const entry of entryList.getEntries()) {
+            if (entry && !entry.hadRecentInput) {
+              store.cls += Number(entry.value) || 0;
+            }
+          }
+        });
+        clsObserver.observe({ type: "layout-shift", buffered: true });
+      } catch {
+        // Unsupported on current page.
+      }
+
+      try {
+        const inpObserver = new PerformanceObserver((entryList) => {
+          for (const entry of entryList.getEntries()) {
+            const duration = Number(entry.duration);
+            if (Number.isFinite(duration) && (!Number.isFinite(store.inp) || duration > store.inp)) {
+              store.inp = duration;
+            }
+          }
+        });
+        inpObserver.observe({ type: "event", buffered: true, durationThreshold: 16 });
+      } catch {
+        // Unsupported on current page.
+      }
+    }
+
+    const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
+    if (lcpEntries.length > 0) {
+      const latestLcp = lcpEntries[lcpEntries.length - 1];
+      const startTime = Number(latestLcp.startTime);
+      if (Number.isFinite(startTime)) {
+        store.lcp = startTime;
+      }
+    }
+
+    const layoutShiftEntries = performance.getEntriesByType("layout-shift");
+    let clsTotal = 0;
+    for (const entry of layoutShiftEntries) {
+      if (entry && !entry.hadRecentInput) {
+        clsTotal += Number(entry.value) || 0;
+      }
+    }
+    if (clsTotal > store.cls) {
+      store.cls = clsTotal;
+    }
+
+    const eventEntries = performance.getEntriesByType("event");
+    for (const entry of eventEntries) {
+      const duration = Number(entry.duration);
+      if (Number.isFinite(duration) && (!Number.isFinite(store.inp) || duration > store.inp)) {
+        store.inp = duration;
+      }
+    }
+
+    const paintEntries = performance.getEntriesByType("paint");
+    for (const paintEntry of paintEntries) {
+      if (paintEntry && paintEntry.name === "first-contentful-paint") {
+        const fcp = Number(paintEntry.startTime);
+        if (Number.isFinite(fcp)) {
+          store.fcp = fcp;
+        }
+      }
+    }
+
+    const navigationEntry = performance.getEntriesByType("navigation")[0] || null;
+
+    return {
+      ok: true,
+      capturedAt: Date.now(),
+      page: {
+        url: location.href,
+        title: document.title,
+        readyState: document.readyState
+      },
+      metrics: {
+        lcp: Number.isFinite(store.lcp) ? store.lcp : null,
+        cls: Number.isFinite(store.cls) ? store.cls : 0,
+        inp: Number.isFinite(store.inp) ? store.inp : null,
+        fcp: Number.isFinite(store.fcp) ? store.fcp : null,
+        ttfb: navigationEntry ? Number(navigationEntry.responseStart) : null,
+        domContentLoaded: navigationEntry ? Number(navigationEntry.domContentLoadedEventEnd) : null,
+        load: navigationEntry ? Number(navigationEntry.loadEventEnd) : null,
+        resourceCount: performance.getEntriesByType("resource").length
+      }
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error && error.message ? error.message : String(error)
+    };
+  }
 }
 
 function analyzeNetworkLogs(logs) {

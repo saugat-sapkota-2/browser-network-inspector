@@ -23,7 +23,10 @@
         </div>
         <h1>Traffic Intelligence Dashboard</h1>
         <p class="subtitle" id="activeTabLabel">Tracking: www.ex.com</p>
-        <button id="analyzeNetworkBtn" class="primary-btn analyze-btn" type="button">Analyze Network</button>
+        <div class="header-action-row">
+          <button id="analyzeNetworkBtn" class="primary-btn analyze-btn" type="button">Analyze Network</button>
+          <button id="openPerformanceBtn" class="ghost-btn performance-open-btn" type="button">Performance Tab</button>
+        </div>
       </div>
       <div class="topbar-right">
         <section class="topbar-controls-card" aria-label="Capture controls">
@@ -82,6 +85,7 @@
     </section>
 
     <div id="analysisBackdrop" class="analysis-backdrop hidden" aria-hidden="true"></div>
+    <div id="performanceBackdrop" class="performance-backdrop hidden" aria-hidden="true"></div>
 
     <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
       <div class="analysis-head">
@@ -138,6 +142,79 @@
       <ul id="analysisInsights" class="analysis-insights">
         <li class="analysis-empty">No analysis yet. Click Analyze Network.</li>
       </ul>
+    </section>
+
+    <section id="performancePanel" class="performance-shell performance-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="performance-head">
+        <div>
+          <p class="analysis-kicker">Performance</p>
+          <h2>Performance Tab</h2>
+          <p id="performanceMeta" class="analysis-meta">Collect local metrics from the tracked tab.</p>
+        </div>
+        <div class="performance-head-actions">
+          <button id="closePerformanceBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close performance panel">Close</button>
+        </div>
+      </div>
+
+      <div class="performance-layout">
+        <div class="performance-metrics-shell">
+          <h3>Local Metrics</h3>
+          <div class="performance-metric-grid">
+            <article class="perf-metric-card" id="perfCardLcp">
+              <p class="perf-metric-title">Largest Contentful Paint (LCP)</p>
+              <p id="perfLcpValue" class="perf-metric-value">--</p>
+              <p id="perfLcpNote" class="perf-metric-note">Waiting for data...</p>
+            </article>
+            <article class="perf-metric-card" id="perfCardCls">
+              <p class="perf-metric-title">Cumulative Layout Shift (CLS)</p>
+              <p id="perfClsValue" class="perf-metric-value">--</p>
+              <p id="perfClsNote" class="perf-metric-note">Waiting for data...</p>
+            </article>
+            <article class="perf-metric-card" id="perfCardInp">
+              <p class="perf-metric-title">Interaction to Next Paint (INP)</p>
+              <p id="perfInpValue" class="perf-metric-value">--</p>
+              <p id="perfInpNote" class="perf-metric-note">Waiting for data...</p>
+            </article>
+            <article class="perf-metric-card" id="perfCardFcp">
+              <p class="perf-metric-title">First Contentful Paint (FCP)</p>
+              <p id="perfFcpValue" class="perf-metric-value">--</p>
+              <p id="perfFcpNote" class="perf-metric-note">Waiting for data...</p>
+            </article>
+          </div>
+
+          <ul id="performanceInsights" class="analysis-insights performance-insights">
+            <li class="analysis-empty">No performance data yet. Click Record.</li>
+          </ul>
+        </div>
+
+        <aside class="performance-side-shell">
+          <section class="performance-env-shell" aria-label="Environment settings">
+            <h3>Environment Settings</h3>
+            <label class="perf-env-row" for="perfCpuSetting">
+              <span>CPU</span>
+              <select id="perfCpuSetting" disabled>
+                <option>No throttling</option>
+              </select>
+            </label>
+            <label class="perf-env-row" for="perfNetworkSetting">
+              <span>Network</span>
+              <select id="perfNetworkSetting" disabled>
+                <option>No throttling</option>
+              </select>
+            </label>
+            <label class="perf-env-check" for="perfDisableCache">
+              <input id="perfDisableCache" type="checkbox" disabled>
+              <span>Disable network cache</span>
+            </label>
+          </section>
+
+          <section class="performance-next-shell" aria-label="Performance actions">
+            <h3>Next Steps</h3>
+            <button id="recordPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record</button>
+            <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
+          </section>
+        </aside>
+      </div>
     </section>
 
     <section class="controls">
