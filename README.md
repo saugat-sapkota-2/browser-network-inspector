@@ -12,8 +12,6 @@ Built with focus on real-world debugging speed, clean UX, and practical monitori
 
 ## Preview
 
-All preview screenshots are stored in the `previews/` folder.
-
 ![Network Monitor Lite Dashboard](previews/Dashboard.png)
 
 ![Network Monitor Lite AI Analysis Panel](previews/AI-Analysis-Panel.png)
