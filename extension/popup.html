@@ -7,358 +7,550 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <main class="app-shell">
-    <header class="topbar">
-      <div class="topbar-left">
-        <div class="identity-row">
-          <span class="product-tag">Network Monitor Lite</span>
-          <span class="developer-tag">Built By</span>
-          <span class="developer-credit" aria-label="Developer credit">
-            <strong>reinF (Saugat Sapkota)</strong>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="sidebar-brand">
+        <div class="logo-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" aria-label="Network Monitor Lite">
+            <path d="M4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm8-5a5 5 0 0 0-5 5h2a3 3 0 1 1 6 0h2a5 5 0 0 0-5-5Z" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Network Monitor Lite</span>
+          <span class="brand-subtitle">Cybersecurity Console</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item" type="button">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h6v8H4v-8Zm10-8h6v16h-6V4Zm-4 6h4v10h-4V10Z" /></svg>
           </span>
-          <span class="capture-pill" id="captureState">
+          <span>Dashboard</span>
+        </button>
+        <a class="nav-item is-important" href="#captureSourcesPanel">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4V4Zm0 8h10v8H4v-8Zm12 0h4v8h-4v-8Z" /></svg></span>
+          <span>Capture Source</span>
+          <span class="nav-badge">IMP</span>
+        </a>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v4H4V4Zm0 6h10v4H4v-4Zm0 6h7v4H4v-4Z" /></svg></span>
+          <span>Live Traffic</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5V4Zm0 6h14v10H5V10Zm4 2v6h6v-6H9Z" /></svg></span>
+          <span>Requests</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h4V6H4v12Zm6 0h4V10h-4v8Zm6 0h4V4h-4v14Z" /></svg></span>
+          <span>Performance</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-3Zm0 4a3 3 0 0 1 3 3c0 2-1.6 3.6-3 5-1.4-1.4-3-3-3-5a3 3 0 0 1 3-3Z" /></svg></span>
+          <span>Security Analysis</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H5V5Zm0 12h8v2H5v-2Zm10 0h4v2h-4v-2Z" /></svg></span>
+          <span>Media Assets</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a6 6 0 0 1 6 6c0 2.8-1.6 5.2-4 6.2V20h-4v-3.8c-2.4-1-4-3.4-4-6.2a6 6 0 0 1 6-6Z" /></svg></span>
+          <span>AI Inspector</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v8H4V4Zm0 10h10v6H4v-6Zm12 0h4v6h-4v-6Z" /></svg></span>
+          <span>Export Center</span>
+        </button>
+        <button class="nav-item" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8 4a7.96 7.96 0 0 1-.6 3l2.1 1.6-2 3.4-2.5-1a8.3 8.3 0 0 1-2.6 1.5l-.4 2.7h-4l-.4-2.7a8.3 8.3 0 0 1-2.6-1.5l-2.5 1-2-3.4L4.6 15A7.96 7.96 0 0 1 4 12c0-1.1.2-2.1.6-3L2.5 7.4l2-3.4 2.5 1a8.3 8.3 0 0 1 2.6-1.5l.4-2.7h4l.4 2.7a8.3 8.3 0 0 1 2.6 1.5l2.5-1 2 3.4L19.4 9c.4.9.6 1.9.6 3Z" /></svg></span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-card">
+          <span class="status-label">Monitoring</span>
+          <span class="status-value">Live</span>
+        </div>
+        <div class="builder-credit">
+          <span>Built by reinF</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="app-body">
+      <header class="app-header">
+        <div class="header-left">
+          <div class="capture-pill" id="captureState">
             <span class="capture-dot" aria-hidden="true"></span>
-            <span class="capture-text">Live Capture</span>
+            <span class="capture-text">Live Monitoring</span>
+          </div>
+          <div class="header-title">
+            <h1>Traffic Intelligence</h1>
+            <p class="subtitle" id="activeTabLabel">Tracking: --</p>
+          </div>
+        </div>
+
+        <label class="search-field" aria-label="Filter requests">
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6 6 0 1 0-.7.7l.3.3v.8L20 20l1-1-5.5-5Zm-5.5 0a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" /></svg>
           </span>
-        </div>
-        <h1>Traffic Intelligence Dashboard</h1>
-        <p class="subtitle" id="activeTabLabel">Tracking: www.ex.com</p>
-        <div class="header-action-row">
-          <button id="analyzeNetworkBtn" class="primary-btn analyze-btn" type="button">Analyze Network</button>
-          <button id="openPerformanceBtn" class="ghost-btn performance-open-btn" type="button">Performance Tab</button>
-          <button id="openElementsBtn" class="ghost-btn elements-open-btn" type="button">Elements Tab</button>
-        </div>
-      </div>
-      <div class="topbar-right">
-        <section class="topbar-controls-card" aria-label="Capture controls">
-          <p class="controls-kicker">Capture Controls</p>
-          <div class="switch-cluster">
-            <label class="toggle-row" for="aiModeToggle">
-              <span class="toggle-copy">
-                <span class="toggle-label">AI Mode</span>
-                <span class="toggle-state" id="aiModeLabel">ON</span>
-              </span>
-              <input type="checkbox" id="aiModeToggle" checked>
-              <span class="toggle-switch" aria-hidden="true"></span>
-            </label>
-            <label class="toggle-row" for="pauseToggle">
-              <span class="toggle-copy">
-                <span class="toggle-label">Pause Capture</span>
-                <span class="toggle-state" id="pauseStateLabel">OFF</span>
-              </span>
-              <input type="checkbox" id="pauseToggle">
-              <span class="toggle-switch" aria-hidden="true"></span>
-            </label>
-            <label class="toggle-row" for="autoClearToggle">
-              <span class="toggle-copy">
-                <span class="toggle-label">Clear on Window Close</span>
-                <span class="toggle-state" id="autoClearStateLabel">OFF</span>
-              </span>
-              <input type="checkbox" id="autoClearToggle">
-              <span class="toggle-switch" aria-hidden="true"></span>
-            </label>
-          </div>
-        </section>
-      </div>
-    </header>
-
-    <section class="stats-panel">
-      <article class="stat-card">
-        <h2>Total Requests</h2>
-        <p id="statTotal">0</p>
-      </article>
-      <article class="stat-card success-card">
-        <h2>Success (2xx)</h2>
-        <p id="statSuccess">0</p>
-      </article>
-      <article class="stat-card error-card">
-        <h2>Errors (4xx/5xx)</h2>
-        <p id="statErrors">0</p>
-      </article>
-      <article class="stat-card">
-        <h2>Avg Response Time</h2>
-        <p id="statAvgLatency">0 ms</p>
-      </article>
-      <article class="stat-card">
-        <h2>Total Data</h2>
-        <p id="statTotalData">0 B</p>
-      </article>
-    </section>
-
-    <div id="analysisBackdrop" class="analysis-backdrop hidden" aria-hidden="true"></div>
-    <div id="performanceBackdrop" class="performance-backdrop hidden" aria-hidden="true"></div>
-    <div id="elementsBackdrop" class="elements-backdrop hidden" aria-hidden="true"></div>
-
-    <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
-      <div class="analysis-head">
-        <div>
-          <p class="analysis-kicker">AI Insight</p>
-          <h2>Analysis Panel</h2>
-          <p id="analysisMeta" class="analysis-meta">Run Analyze Network to generate actionable insights.</p>
-        </div>
-        <div class="analysis-head-actions">
-          <button id="reAnalyzeBtn" class="primary-btn analysis-action-btn" type="button">Re-Analyze</button>
-          <label class="switch-row analysis-switch" for="deepAnalysisToggle">
-            <input type="checkbox" id="deepAnalysisToggle" checked>
-            <span id="deepAnalysisLabel">Deep Scan ON</span>
-          </label>
-          <label class="switch-row analysis-switch" for="autoReAnalyzeToggle">
-            <input type="checkbox" id="autoReAnalyzeToggle" checked>
-            <span id="autoReAnalyzeLabel">Auto Refresh ON</span>
-          </label>
-          <button id="closeAnalysisBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close AI analysis panel">Close</button>
-        </div>
-      </div>
-
-      <div class="analysis-score-card" id="analysisScoreCard">
-        <p id="analysisScore" class="analysis-score">Performance Score: --/100</p>
-        <div class="analysis-score-track" aria-hidden="true">
-          <span id="analysisScoreBar" class="analysis-score-bar"></span>
-        </div>
-        <p id="analysisScoreDetail" class="analysis-score-detail">Penalties: slow 0, errors 0, duplicates 0.</p>
-      </div>
-
-      <div class="analysis-summary-grid">
-        <article class="analysis-summary-item">
-          <h3>Total Requests</h3>
-          <p id="analysisTotalRequests">0</p>
-        </article>
-        <article class="analysis-summary-item">
-          <h3>Errors</h3>
-          <p id="analysisErrorCount">0</p>
-        </article>
-        <article class="analysis-summary-item">
-          <h3>Avg Response</h3>
-          <p id="analysisAvgResponse">0 ms</p>
-        </article>
-        <article class="analysis-summary-item">
-          <h3>Slow (&gt;1000ms)</h3>
-          <p id="analysisSlowCount">0</p>
-        </article>
-        <article class="analysis-summary-item">
-          <h3>Duplicate Clusters</h3>
-          <p id="analysisDuplicateCount">0</p>
-        </article>
-      </div>
-
-      <ul id="analysisInsights" class="analysis-insights">
-        <li class="analysis-empty">No analysis yet. Click Analyze Network.</li>
-      </ul>
-    </section>
-
-    <section id="performancePanel" class="performance-shell performance-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
-      <div class="performance-head">
-        <div>
-          <p class="analysis-kicker">Performance</p>
-          <h2>Performance Tab</h2>
-          <p id="performanceMeta" class="analysis-meta">Collect local metrics from the tracked tab.</p>
-        </div>
-        <div class="performance-head-actions">
-          <button id="closePerformanceBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close performance panel">Close</button>
-        </div>
-      </div>
-
-      <div class="performance-layout">
-        <div class="performance-metrics-shell">
-          <h3>Local Metrics</h3>
-          <div class="performance-metric-grid">
-            <article class="perf-metric-card" id="perfCardLcp">
-              <p class="perf-metric-title">Largest Contentful Paint (LCP)</p>
-              <p id="perfLcpValue" class="perf-metric-value">--</p>
-              <p id="perfLcpNote" class="perf-metric-note">Waiting for data...</p>
-            </article>
-            <article class="perf-metric-card" id="perfCardCls">
-              <p class="perf-metric-title">Cumulative Layout Shift (CLS)</p>
-              <p id="perfClsValue" class="perf-metric-value">--</p>
-              <p id="perfClsNote" class="perf-metric-note">Waiting for data...</p>
-            </article>
-            <article class="perf-metric-card" id="perfCardInp">
-              <p class="perf-metric-title">Interaction to Next Paint (INP)</p>
-              <p id="perfInpValue" class="perf-metric-value">--</p>
-              <p id="perfInpNote" class="perf-metric-note">Waiting for data...</p>
-            </article>
-            <article class="perf-metric-card" id="perfCardFcp">
-              <p class="perf-metric-title">First Contentful Paint (FCP)</p>
-              <p id="perfFcpValue" class="perf-metric-value">--</p>
-              <p id="perfFcpNote" class="perf-metric-note">Waiting for data...</p>
-            </article>
-          </div>
-
-          <ul id="performanceInsights" class="analysis-insights performance-insights">
-            <li class="analysis-empty">No performance data yet. Click Record.</li>
-          </ul>
-        </div>
-
-        <aside class="performance-side-shell">
-          <section class="performance-env-shell" aria-label="Environment settings">
-            <h3>Environment Settings</h3>
-            <label class="perf-env-row" for="perfCpuSetting">
-              <span>CPU</span>
-              <select id="perfCpuSetting" disabled>
-                <option>No throttling</option>
-              </select>
-            </label>
-            <label class="perf-env-row" for="perfNetworkSetting">
-              <span>Network</span>
-              <select id="perfNetworkSetting" disabled>
-                <option>No throttling</option>
-              </select>
-            </label>
-            <label class="perf-env-check" for="perfDisableCache">
-              <input id="perfDisableCache" type="checkbox" disabled>
-              <span>Disable network cache</span>
-            </label>
-          </section>
-
-          <section class="performance-next-shell" aria-label="Performance actions">
-            <h3>Next Steps</h3>
-            <button id="recordPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record</button>
-            <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
-          </section>
-        </aside>
-      </div>
-    </section>
-
-    <section id="elementsPanel" class="elements-shell elements-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
-      <div class="elements-head">
-        <div>
-          <p class="analysis-kicker">Elements</p>
-          <h2>Elements Tab</h2>
-          <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML, CSS, JavaScript hooks, and animations.</p>
-        </div>
-        <div class="elements-head-actions">
-          <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
-          <button id="pickElementBtn" class="ghost-btn" type="button">Pick On Page</button>
-          <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close elements panel">Close</button>
-        </div>
-      </div>
-
-      <div class="elements-layout">
-        <section class="elements-list-shell" aria-label="Element selector list">
-          <div class="elements-list-head">
-            <h3>Element Selectors</h3>
-            <span id="elementsCount">0</span>
-          </div>
-          <div class="element-selector-input-row">
-            <input
-              id="elementSelectorInput"
-              type="text"
-              placeholder="Find by CSS selector (e.g. #app .btn-primary)"
-              autocomplete="off"
-              spellcheck="false"
-            >
-            <button id="applyElementSelectorBtn" class="ghost-btn" type="button">Select</button>
-          </div>
           <input
-            id="elementsSearchInput"
+            id="searchInput"
             type="search"
-            placeholder="Filter loaded selectors..."
+            placeholder="Filter requests, domains, status..."
             autocomplete="off"
             spellcheck="false"
           >
-          <div id="elementSelectorList" class="element-selector-list"></div>
-        </section>
+        </label>
 
-        <section class="elements-detail-shell" aria-label="Element HTML, CSS, JavaScript, and animation details">
-          <div class="elements-detail-head">
-            <h3 id="elementDetailsTitle">Selected Element</h3>
-            <div class="element-insight-badges" aria-live="polite">
-              <span id="elementTagBadge" class="element-insight-badge is-tag is-active">Tag: --</span>
-              <span id="elementJsBadge" class="element-insight-badge is-js is-inactive">JavaScript: none</span>
-              <span id="elementAnimationBadge" class="element-insight-badge is-animation is-inactive">Animation: none</span>
+        <div class="header-actions">
+          <button class="icon-btn" type="button" aria-label="Toggle theme">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c.4 0 .8 0 1.2-.1A8 8 0 0 1 12 5c0-1.1.2-2.1.5-3-.2 0-.3 0-.5 0Z" /></svg>
+          </button>
+          <button class="icon-btn" type="button" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22Zm7-6V11c0-3.4-2-6-5-6.8V3a2 2 0 1 0-4 0v1.2C7 5 5 7.6 5 11v5l-2 2v1h18v-1l-2-2Z" /></svg>
+          </button>
+          <button class="icon-btn" type="button" aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8 4a7.96 7.96 0 0 1-.6 3l2.1 1.6-2 3.4-2.5-1a8.3 8.3 0 0 1-2.6 1.5l-.4 2.7h-4l-.4-2.7a8.3 8.3 0 0 1-2.6-1.5l-2.5 1-2-3.4L4.6 15A7.96 7.96 0 0 1 4 12c0-1.1.2-2.1.6-3L2.5 7.4l2-3.4 2.5 1a8.3 8.3 0 0 1 2.6-1.5l.4-2.7h4l.4 2.7a8.3 8.3 0 0 1 2.6 1.5l2.5-1 2 3.4L19.4 9c.4.9.6 1.9.6 3Z" /></svg>
+          </button>
+          <div class="profile-chip" aria-label="Profile">RS</div>
+        </div>
+      </header>
+
+      <div class="main-content">
+        <section class="hero-grid">
+          <div class="panel hero-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Live Monitoring</p>
+                <h2>Traffic Overview</h2>
+                <p class="panel-subtitle">Real-time visibility across active requests, latency, and bandwidth.</p>
+              </div>
+              <div class="panel-actions">
+                <button id="analyzeNetworkBtn" class="primary-btn" type="button">AI Analyze</button>
+                <button id="openPerformanceBtn" class="ghost-btn" type="button">Performance</button>
+                <button id="openElementsBtn" class="ghost-btn" type="button">Elements</button>
+              </div>
+            </div>
+
+            <div class="stats-grid">
+              <article class="stat-card">
+                <div class="stat-meta">
+                  <span>Total Requests</span>
+                  <span class="stat-trend up">+4%</span>
+                </div>
+                <p id="statTotal">0</p>
+              </article>
+              <article class="stat-card success-card">
+                <div class="stat-meta">
+                  <span>Success Rate</span>
+                  <span class="stat-trend up">+2%</span>
+                </div>
+                <p id="statSuccess">0</p>
+              </article>
+              <article class="stat-card error-card">
+                <div class="stat-meta">
+                  <span>Errors</span>
+                  <span class="stat-trend down">-1%</span>
+                </div>
+                <p id="statErrors">0</p>
+              </article>
+              <article class="stat-card">
+                <div class="stat-meta">
+                  <span>Avg Latency</span>
+                  <span class="stat-trend warn">+9ms</span>
+                </div>
+                <p id="statAvgLatency">0 ms</p>
+              </article>
+              <article class="stat-card">
+                <div class="stat-meta">
+                  <span>Total Bandwidth</span>
+                  <span class="stat-trend up">+12%</span>
+                </div>
+                <p id="statTotalData">0 B</p>
+              </article>
+            </div>
+
+            <div class="chart-shell" aria-hidden="true">
+              <div class="chart-header">
+                <span>Live Traffic Graph</span>
+                <span class="chip">Last 5 min</span>
+              </div>
+              <div class="chart-graphic">
+                <div class="chart-line"></div>
+                <div class="chart-grid"></div>
+              </div>
             </div>
           </div>
 
-          <div class="element-detail-grid">
-            <article class="element-code-shell">
-              <p class="element-code-label">HTML</p>
-              <pre id="elementHtmlView" class="element-code-view">Select an element selector to view HTML.</pre>
-            </article>
-            <article class="element-code-shell">
-              <p class="element-code-label">CSS</p>
-              <pre id="elementCssView" class="element-code-view">Select an element selector to view computed CSS.</pre>
-            </article>
-            <article class="element-code-shell is-js-shell">
-              <p class="element-code-label">JavaScript</p>
-              <pre id="elementJsView" class="element-code-view">Select an element selector to inspect JavaScript handlers and hooks.</pre>
-            </article>
-            <article class="element-code-shell is-animation-shell">
-              <p class="element-code-label">Animations</p>
-              <pre id="elementAnimationView" class="element-code-view">Select an element selector to inspect CSS animations and transitions.</pre>
-            </article>
+          <div class="panel hero-panel side-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">AI Inspector</p>
+                <h2>Security Insights</h2>
+                <p class="panel-subtitle">Threat signals, privacy risks, and anomaly clusters.</p>
+              </div>
+              <button class="ghost-btn" type="button">Open Insights</button>
+            </div>
+            <ul class="insight-list" aria-live="polite">
+              <li class="insight-card is-warning">
+                <div>
+                  <span class="insight-title">Suspicious request spike</span>
+                  <span class="insight-meta">3 domains exceeded baseline</span>
+                </div>
+                <span class="insight-level">Medium</span>
+              </li>
+              <li class="insight-card is-danger">
+                <div>
+                  <span class="insight-title">Tracker detected</span>
+                  <span class="insight-meta">Fingerprinting script spotted</span>
+                </div>
+                <span class="insight-level">High</span>
+              </li>
+              <li class="insight-card is-good">
+                <div>
+                  <span class="insight-title">Caching optimized</span>
+                  <span class="insight-meta">Duplicate assets reduced</span>
+                </div>
+                <span class="insight-level">Low</span>
+              </li>
+            </ul>
+
+            <div class="mini-panel-grid" aria-hidden="true">
+              <div class="mini-panel">
+                <h3>Domain Heatmap</h3>
+                <div class="heatmap-grid"></div>
+              </div>
+              <div class="mini-panel">
+                <h3>Response Timeline</h3>
+                <div class="waterfall"></div>
+              </div>
+            </div>
           </div>
         </section>
-      </div>
-    </section>
 
-    <section class="controls">
-      <div class="controls-head">
-        <h2>Filters And Actions</h2>
-        <p>Refine incoming requests and export exactly what you need.</p>
-      </div>
-      <input
-        id="searchInput"
-        type="search"
-        placeholder="Search URL or domain..."
-        autocomplete="off"
-        spellcheck="false"
-      >
+        <section class="panel request-panel" aria-live="polite">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Live Traffic</p>
+              <h2>Requests</h2>
+              <p class="panel-subtitle">Sticky headers, status pills, and AI risk scoring.</p>
+            </div>
+            <div class="panel-actions">
+              <div class="segmented" id="filterGroup">
+                <button class="segment is-active" data-filter="all">All</button>
+                <button class="segment" data-filter="xhrfetch">XHR</button>
+                <button class="segment" data-filter="images">Images</button>
+                <button class="segment" data-filter="media">Media</button>
+                <button class="segment" data-filter="scripts">Scripts</button>
+                <button class="segment" data-filter="documents">Docs</button>
+                <button class="segment" data-filter="errors">Errors</button>
+                <button class="segment" data-filter="slow">Slow</button>
+              </div>
+              <div class="panel-tools">
+                <button id="reloadTabBtn" class="ghost-btn" type="button">Reload</button>
+                <button id="clearLogsBtn" class="ghost-btn" type="button">Clear</button>
+                <button id="exportJsonBtn" class="ghost-btn" type="button">Export JSON</button>
+                <button id="exportCsvBtn" class="ghost-btn" type="button">Export CSV</button>
+              </div>
+            </div>
+          </div>
 
-      <div class="filter-group" id="filterGroup">
-        <button class="filter-chip is-active" data-filter="all">All Requests</button>
-        <button class="filter-chip" data-filter="xhrfetch">XHR / Fetch</button>
-        <button class="filter-chip" data-filter="images">Images</button>
-        <button class="filter-chip" data-filter="media">Media / Video</button>
-        <button class="filter-chip" data-filter="scripts">Scripts</button>
-        <button class="filter-chip" data-filter="documents">Documents</button>
-        <button class="filter-chip" data-filter="errors">Errors Only</button>
-        <button class="filter-chip" data-filter="slow">Slow (&gt;500ms)</button>
+          <div class="table-shell">
+            <table>
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>URL</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>Type</th>
+                  <th>Time</th>
+                  <th>Latency</th>
+                </tr>
+              </thead>
+              <tbody id="logRows"></tbody>
+            </table>
+            <div id="emptyState" class="empty-state">No network activity captured yet.</div>
+          </div>
+        </section>
+
+        <section id="captureSourcesPanel" class="panel assets-panel capture-panel" aria-live="polite">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Assets</p>
+              <h2>Capture Source</h2>
+            </div>
+            <div class="panel-actions">
+              <span id="sourcesCount" class="count-pill">0</span>
+              <div class="segmented is-compact" id="sourceFilterGroup">
+                <button class="segment is-active" data-source-filter="all">All</button>
+                <button class="segment" data-source-filter="js">.js</button>
+                <button class="segment" data-source-filter="image">Image</button>
+                <button class="segment" data-source-filter="video">Video</button>
+                <button class="segment" data-source-filter="other">Other</button>
+              </div>
+              <div class="view-toggle">
+                <button class="icon-btn" type="button" aria-label="Grid view">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" /></svg>
+                </button>
+                <button class="icon-btn" type="button" aria-label="List view">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z" /></svg>
+                </button>
+              </div>
+              <button id="reloadTabBtnSources" class="ghost-btn" type="button">Reload</button>
+            </div>
+          </div>
+          <div id="sourceList" class="source-list"></div>
+        </section>
       </div>
 
-      <div class="action-group">
-        <button id="reloadTabBtn" class="ghost-btn">Reload Tab</button>
-        <button id="clearLogsBtn" class="ghost-btn">Clear Logs</button>
-        <button id="exportJsonBtn" class="ghost-btn">Export JSON</button>
-        <button id="exportCsvBtn" class="ghost-btn">Export CSV</button>
-      </div>
-    </section>
-
-    <section class="sources-shell" aria-live="polite">
-      <div class="sources-head">
-        <h2>Captured Source Links</h2>
-        <span id="sourcesCount">0</span>
-      </div>
-      <div class="sources-toolbar">
-        <div class="source-filter-group" id="sourceFilterGroup">
-          <button class="source-filter-chip is-active" data-source-filter="all">All</button>
-          <button class="source-filter-chip" data-source-filter="js">.js</button>
-          <button class="source-filter-chip" data-source-filter="image">Image</button>
-          <button class="source-filter-chip" data-source-filter="video">Video</button>
-          <button class="source-filter-chip" data-source-filter="other">Other</button>
+      <aside class="command-panel" aria-label="Capture controls">
+        <div class="command-head">
+          <span>Capture Controls</span>
+          <span class="pulse-dot" aria-hidden="true"></span>
         </div>
-        <button id="reloadTabBtnSources" class="ghost-btn">Reload Tab</button>
-      </div>
-      <div id="sourceList" class="source-list"></div>
-    </section>
+        <div class="command-section">
+          <label class="toggle-row" for="aiModeToggle">
+            <span class="toggle-copy">
+              <span class="toggle-label">AI Mode</span>
+              <span class="toggle-state" id="aiModeLabel">ON</span>
+            </span>
+            <input type="checkbox" id="aiModeToggle" checked>
+            <span class="toggle-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-row" for="pauseToggle">
+            <span class="toggle-copy">
+              <span class="toggle-label">Pause Capture</span>
+              <span class="toggle-state" id="pauseStateLabel">OFF</span>
+            </span>
+            <input type="checkbox" id="pauseToggle">
+            <span class="toggle-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-row" for="autoClearToggle">
+            <span class="toggle-copy">
+              <span class="toggle-label">Auto Clear</span>
+              <span class="toggle-state" id="autoClearStateLabel">OFF</span>
+            </span>
+            <input type="checkbox" id="autoClearToggle">
+            <span class="toggle-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="command-section">
+          <button id="webDarkerBtn" class="ghost-btn webdarker-btn" type="button" aria-pressed="false">WebDarker</button>
+          <button class="ghost-btn" type="button">Record Session</button>
+          <button class="ghost-btn" type="button">Advanced Filters</button>
+        </div>
+      </aside>
+    </div>
+  </div>
 
-    <section class="table-shell" aria-live="polite">
-      <table>
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>URL</th>
-            <th>Source</th>
-            <th>Status</th>
-            <th>Type</th>
-            <th>Time</th>
-            <th>Latency</th>
-          </tr>
-        </thead>
-        <tbody id="logRows"></tbody>
-      </table>
-      <div id="emptyState" class="empty-state">No network activity captured yet.</div>
-    </section>
-  </main>
+  <div id="analysisBackdrop" class="analysis-backdrop hidden" aria-hidden="true"></div>
+  <div id="performanceBackdrop" class="performance-backdrop hidden" aria-hidden="true"></div>
+  <div id="elementsBackdrop" class="elements-backdrop hidden" aria-hidden="true"></div>
+
+  <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="analysis-head">
+      <div>
+        <p class="analysis-kicker">AI Insight</p>
+        <h2>Analysis Panel</h2>
+        <p id="analysisMeta" class="analysis-meta">Run AI Analyze to generate actionable insights.</p>
+      </div>
+      <div class="analysis-head-actions">
+        <button id="reAnalyzeBtn" class="primary-btn analysis-action-btn" type="button">Re-Analyze</button>
+        <label class="switch-row analysis-switch" for="deepAnalysisToggle">
+          <input type="checkbox" id="deepAnalysisToggle" checked>
+          <span id="deepAnalysisLabel">Deep Scan ON</span>
+        </label>
+        <label class="switch-row analysis-switch" for="autoReAnalyzeToggle">
+          <input type="checkbox" id="autoReAnalyzeToggle" checked>
+          <span id="autoReAnalyzeLabel">Auto Refresh ON</span>
+        </label>
+        <button id="closeAnalysisBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close AI analysis panel">Close</button>
+      </div>
+    </div>
+
+    <div class="analysis-score-card" id="analysisScoreCard">
+      <p id="analysisScore" class="analysis-score">Performance Score: --/100</p>
+      <div class="analysis-score-track" aria-hidden="true">
+        <span id="analysisScoreBar" class="analysis-score-bar"></span>
+      </div>
+      <p id="analysisScoreDetail" class="analysis-score-detail">Penalties: slow 0, errors 0, duplicates 0.</p>
+    </div>
+
+    <div class="analysis-summary-grid">
+      <article class="analysis-summary-item">
+        <h3>Total Requests</h3>
+        <p id="analysisTotalRequests">0</p>
+      </article>
+      <article class="analysis-summary-item">
+        <h3>Errors</h3>
+        <p id="analysisErrorCount">0</p>
+      </article>
+      <article class="analysis-summary-item">
+        <h3>Avg Response</h3>
+        <p id="analysisAvgResponse">0 ms</p>
+      </article>
+      <article class="analysis-summary-item">
+        <h3>Slow (&gt;1000ms)</h3>
+        <p id="analysisSlowCount">0</p>
+      </article>
+      <article class="analysis-summary-item">
+        <h3>Duplicate Clusters</h3>
+        <p id="analysisDuplicateCount">0</p>
+      </article>
+    </div>
+
+    <ul id="analysisInsights" class="analysis-insights">
+      <li class="analysis-empty">No analysis yet. Click AI Analyze.</li>
+    </ul>
+  </section>
+
+  <section id="performancePanel" class="performance-shell performance-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="performance-head">
+      <div>
+        <p class="analysis-kicker">Performance</p>
+        <h2>Performance Tab</h2>
+        <p id="performanceMeta" class="analysis-meta">Collect local metrics from the tracked tab.</p>
+      </div>
+      <div class="performance-head-actions">
+        <button id="closePerformanceBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close performance panel">Close</button>
+      </div>
+    </div>
+
+    <div class="performance-layout">
+      <div class="performance-metrics-shell">
+        <h3>Local Metrics</h3>
+        <div class="performance-metric-grid">
+          <article class="perf-metric-card" id="perfCardLcp">
+            <p class="perf-metric-title">Largest Contentful Paint (LCP)</p>
+            <p id="perfLcpValue" class="perf-metric-value">--</p>
+            <p id="perfLcpNote" class="perf-metric-note">Waiting for data...</p>
+          </article>
+          <article class="perf-metric-card" id="perfCardCls">
+            <p class="perf-metric-title">Cumulative Layout Shift (CLS)</p>
+            <p id="perfClsValue" class="perf-metric-value">--</p>
+            <p id="perfClsNote" class="perf-metric-note">Waiting for data...</p>
+          </article>
+          <article class="perf-metric-card" id="perfCardInp">
+            <p class="perf-metric-title">Interaction to Next Paint (INP)</p>
+            <p id="perfInpValue" class="perf-metric-value">--</p>
+            <p id="perfInpNote" class="perf-metric-note">Waiting for data...</p>
+          </article>
+          <article class="perf-metric-card" id="perfCardFcp">
+            <p class="perf-metric-title">First Contentful Paint (FCP)</p>
+            <p id="perfFcpValue" class="perf-metric-value">--</p>
+            <p id="perfFcpNote" class="perf-metric-note">Waiting for data...</p>
+          </article>
+        </div>
+
+        <ul id="performanceInsights" class="analysis-insights performance-insights">
+          <li class="analysis-empty">No performance data yet. Click Record.</li>
+        </ul>
+      </div>
+
+      <aside class="performance-side-shell">
+        <section class="performance-env-shell" aria-label="Environment settings">
+          <h3>Environment Settings</h3>
+          <label class="perf-env-row" for="perfCpuSetting">
+            <span>CPU</span>
+            <select id="perfCpuSetting" disabled>
+              <option>No throttling</option>
+            </select>
+          </label>
+          <label class="perf-env-row" for="perfNetworkSetting">
+            <span>Network</span>
+            <select id="perfNetworkSetting" disabled>
+              <option>No throttling</option>
+            </select>
+          </label>
+          <label class="perf-env-check" for="perfDisableCache">
+            <input id="perfDisableCache" type="checkbox" disabled>
+            <span>Disable network cache</span>
+          </label>
+        </section>
+
+        <section class="performance-next-shell" aria-label="Performance actions">
+          <h3>Next Steps</h3>
+          <button id="recordPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record</button>
+          <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
+        </section>
+      </aside>
+    </div>
+  </section>
+
+  <section id="elementsPanel" class="elements-shell elements-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="elements-head">
+      <div>
+        <p class="analysis-kicker">Elements</p>
+        <h2>Elements Tab</h2>
+        <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML, CSS, JavaScript hooks, and animations.</p>
+      </div>
+      <div class="elements-head-actions">
+        <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
+        <button id="pickElementBtn" class="ghost-btn" type="button">Pick On Page</button>
+        <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close elements panel">Close</button>
+      </div>
+    </div>
+
+    <div class="elements-layout">
+      <section class="elements-list-shell" aria-label="Element selector list">
+        <div class="elements-list-head">
+          <h3>Element Selectors</h3>
+          <span id="elementsCount">0</span>
+        </div>
+        <div class="element-selector-input-row">
+          <input
+            id="elementSelectorInput"
+            type="text"
+            placeholder="Find by CSS selector (e.g. #app .btn-primary)"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button id="applyElementSelectorBtn" class="ghost-btn" type="button">Select</button>
+        </div>
+        <input
+          id="elementsSearchInput"
+          type="search"
+          placeholder="Filter loaded selectors..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <div id="elementSelectorList" class="element-selector-list"></div>
+      </section>
+
+      <section class="elements-detail-shell" aria-label="Element HTML, CSS, JavaScript, and animation details">
+        <div class="elements-detail-head">
+          <h3 id="elementDetailsTitle">Selected Element</h3>
+          <div class="element-insight-badges" aria-live="polite">
+            <span id="elementTagBadge" class="element-insight-badge is-tag is-active">Tag: --</span>
+            <span id="elementJsBadge" class="element-insight-badge is-js is-inactive">JavaScript: none</span>
+            <span id="elementAnimationBadge" class="element-insight-badge is-animation is-inactive">Animation: none</span>
+          </div>
+        </div>
+
+        <div class="element-detail-grid">
+          <article class="element-code-shell">
+            <p class="element-code-label">HTML</p>
+            <pre id="elementHtmlView" class="element-code-view">Select an element selector to view HTML.</pre>
+          </article>
+          <article class="element-code-shell">
+            <p class="element-code-label">CSS</p>
+            <pre id="elementCssView" class="element-code-view">Select an element selector to view computed CSS.</pre>
+          </article>
+          <article class="element-code-shell is-js-shell">
+            <p class="element-code-label">JavaScript</p>
+            <pre id="elementJsView" class="element-code-view">Select an element selector to inspect JavaScript handlers and hooks.</pre>
+          </article>
+          <article class="element-code-shell is-animation-shell">
+            <p class="element-code-label">Animations</p>
+            <pre id="elementAnimationView" class="element-code-view">Select an element selector to inspect CSS animations and transitions.</pre>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
 
   <script src="popup.js"></script>
 </body>

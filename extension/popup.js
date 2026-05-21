@@ -12,6 +12,21 @@ const BENIGN_ERROR_MARKERS = ["ERR_ABORTED", "NS_BINDING_ABORTED", "ERR_BLOCKED_
 const PERF_RELOAD_CAPTURE_WAIT_MS = 22000;
 const PERF_RELOAD_POLL_INTERVAL_MS = 1200;
 const PERF_RELOAD_NAV_CHANGE_GRACE_MS = 25;
+const WEBDARKER_STORAGE_KEY = "nml_webdarker_tabs";
+const WEBDARKER_CSS = `
+html {
+  filter: invert(1) hue-rotate(180deg) !important;
+  background: #0b0e12 !important;
+}
+img,
+video,
+picture,
+canvas,
+svg,
+iframe {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+`;
 
 const ELEMENT_SELECTOR_SCAN_LIMIT = 450;
 const FULL_RENDER_CHUNK_SIZE = 72;
@@ -59,6 +74,7 @@ const state = {
     requestToken: 0,
     snapshot: null
   },
+  webDarkerTabs: new Set(),
   elements: {
     isOpen: false,
     isLoading: false,
@@ -157,6 +173,7 @@ const dom = {
   sourceFilterGroup: null,
   reloadTabBtn: null,
   reloadTabBtnSources: null,
+  webDarkerBtn: null,
   clearLogsBtn: null,
   exportJsonBtn: null,
   exportCsvBtn: null,
@@ -193,6 +210,7 @@ async function init() {
   bindEvents();
 
   await requestInitialState();
+  await loadWebDarkerState();
   syncActiveTabLabel();
 }
 
@@ -204,6 +222,7 @@ function bindDom() {
   dom.autoClearToggle = document.getElementById("autoClearToggle");
   dom.autoClearStateLabel = document.getElementById("autoClearStateLabel");
   dom.analyzeNetworkBtn = document.getElementById("analyzeNetworkBtn");
+  dom.webDarkerBtn = document.getElementById("webDarkerBtn");
   dom.openPerformanceBtn = document.getElementById("openPerformanceBtn");
   dom.openElementsBtn = document.getElementById("openElementsBtn");
   dom.aiModeToggle = document.getElementById("aiModeToggle");
@@ -323,6 +342,10 @@ function bindEvents() {
   dom.analyzeNetworkBtn.addEventListener("click", () => {
     runNetworkAnalysis();
     openAnalysisPanel();
+  });
+
+  dom.webDarkerBtn.addEventListener("click", () => {
+    void toggleWebDarker();
   });
 
   dom.openPerformanceBtn.addEventListener("click", () => {
@@ -510,6 +533,74 @@ function sendMessage(payload) {
 
       resolve(response || null);
     });
+  });
+}
+
+async function loadWebDarkerState() {
+  try {
+    const stored = await chrome.storage.local.get(WEBDARKER_STORAGE_KEY);
+    const tabIds = stored && Array.isArray(stored[WEBDARKER_STORAGE_KEY])
+      ? stored[WEBDARKER_STORAGE_KEY]
+      : [];
+    state.webDarkerTabs = new Set(tabIds.filter((tabId) => Number.isInteger(tabId)));
+  } catch {
+    state.webDarkerTabs = new Set();
+  }
+
+  updateWebDarkerButton();
+}
+
+function updateWebDarkerButton() {
+  const targetTabId = Number(state.targetTabId);
+  const isValidTarget = Number.isInteger(targetTabId) && targetTabId >= 0;
+  const isEnabled = isValidTarget && state.webDarkerTabs.has(targetTabId);
+
+  dom.webDarkerBtn.disabled = !isValidTarget;
+  dom.webDarkerBtn.classList.toggle("is-active", isEnabled);
+  dom.webDarkerBtn.textContent = isEnabled ? "WebDarker On" : "WebDarker";
+  dom.webDarkerBtn.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+}
+
+async function toggleWebDarker() {
+  const targetTabId = Number(state.targetTabId);
+  if (!Number.isInteger(targetTabId) || targetTabId < 0) {
+    return;
+  }
+
+  const isEnabled = state.webDarkerTabs.has(targetTabId);
+  await setWebDarkerForTab(targetTabId, !isEnabled);
+  updateWebDarkerButton();
+}
+
+async function setWebDarkerForTab(tabId, enabled) {
+  if (!Number.isInteger(tabId) || tabId < 0) {
+    return;
+  }
+
+  try {
+    if (enabled) {
+      await chrome.scripting.insertCSS({
+        target: { tabId, allFrames: true },
+        css: WEBDARKER_CSS
+      });
+      state.webDarkerTabs.add(tabId);
+    } else {
+      await chrome.scripting.removeCSS({
+        target: { tabId, allFrames: true },
+        css: WEBDARKER_CSS
+      });
+      state.webDarkerTabs.delete(tabId);
+    }
+  } catch {
+    return;
+  }
+
+  await persistWebDarkerTabs();
+}
+
+function persistWebDarkerTabs() {
+  return chrome.storage.local.set({
+    [WEBDARKER_STORAGE_KEY]: Array.from(state.webDarkerTabs)
   });
 }
 
@@ -4326,5 +4417,7 @@ async function syncActiveTabLabel() {
   } catch {
     dom.activeTabLabel.textContent = "Tracking: Tab is not available";
     dom.activeTabLabel.title = "";
+  } finally {
+    updateWebDarkerButton();
   }
 }
