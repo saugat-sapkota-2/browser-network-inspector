@@ -130,7 +130,6 @@
               </div>
               <div class="panel-actions">
                 <button id="analyzeNetworkBtn" class="primary-btn" type="button">AI Analyze</button>
-                <button id="openPerformanceBtn" class="ghost-btn" type="button">Performance</button>
                 <button id="openElementsBtn" class="ghost-btn" type="button">Elements</button>
               </div>
             </div>
@@ -329,14 +328,73 @@
         </section>
 
         <section class="section-view" data-section="performance">
-          <section class="panel">
-            <div class="panel-header">
+          <section id="performancePanel" class="performance-shell" aria-live="polite">
+            <div class="performance-head">
               <div>
-                <p class="panel-kicker">Performance</p>
-                <h2>Performance Overview</h2>
-                <p class="panel-subtitle">Open the Performance tab for full diagnostics.</p>
+                <p class="analysis-kicker">Performance</p>
+                <h2>Performance Tab</h2>
+                <p id="performanceMeta" class="analysis-meta">Collect local metrics from the tracked tab.</p>
               </div>
-              <button class="ghost-btn" type="button">Open Performance</button>
+            </div>
+
+            <div class="performance-layout">
+              <div class="performance-metrics-shell">
+                <h3>Local Metrics</h3>
+                <div class="performance-metric-grid">
+                  <article class="perf-metric-card" id="perfCardLcp">
+                    <p class="perf-metric-title">Largest Contentful Paint (LCP)</p>
+                    <p id="perfLcpValue" class="perf-metric-value">--</p>
+                    <p id="perfLcpNote" class="perf-metric-note">Waiting for data...</p>
+                  </article>
+                  <article class="perf-metric-card" id="perfCardCls">
+                    <p class="perf-metric-title">Cumulative Layout Shift (CLS)</p>
+                    <p id="perfClsValue" class="perf-metric-value">--</p>
+                    <p id="perfClsNote" class="perf-metric-note">Waiting for data...</p>
+                  </article>
+                  <article class="perf-metric-card" id="perfCardInp">
+                    <p class="perf-metric-title">Interaction to Next Paint (INP)</p>
+                    <p id="perfInpValue" class="perf-metric-value">--</p>
+                    <p id="perfInpNote" class="perf-metric-note">Waiting for data...</p>
+                  </article>
+                  <article class="perf-metric-card" id="perfCardFcp">
+                    <p class="perf-metric-title">First Contentful Paint (FCP)</p>
+                    <p id="perfFcpValue" class="perf-metric-value">--</p>
+                    <p id="perfFcpNote" class="perf-metric-note">Waiting for data...</p>
+                  </article>
+                </div>
+
+                <ul id="performanceInsights" class="analysis-insights performance-insights">
+                  <li class="analysis-empty">No performance data yet. Click Record.</li>
+                </ul>
+              </div>
+
+              <aside class="performance-side-shell">
+                <section class="performance-env-shell" aria-label="Environment settings">
+                  <h3>Environment Settings</h3>
+                  <label class="perf-env-row" for="perfCpuSetting">
+                    <span>CPU</span>
+                    <select id="perfCpuSetting" disabled>
+                      <option>No throttling</option>
+                    </select>
+                  </label>
+                  <label class="perf-env-row" for="perfNetworkSetting">
+                    <span>Network</span>
+                    <select id="perfNetworkSetting" disabled>
+                      <option>No throttling</option>
+                    </select>
+                  </label>
+                  <label class="perf-env-check" for="perfDisableCache">
+                    <input id="perfDisableCache" type="checkbox" disabled>
+                    <span>Disable network cache</span>
+                  </label>
+                </section>
+
+                <section class="performance-next-shell" aria-label="Performance actions">
+                  <h3>Next Steps</h3>
+                  <button id="recordPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record</button>
+                  <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
+                </section>
+              </aside>
             </div>
           </section>
         </section>
@@ -367,15 +425,60 @@
         </section>
 
         <section class="section-view" data-section="ai">
-          <section class="panel">
-            <div class="panel-header">
+          <section id="analysisPanel" class="analysis-shell" aria-live="polite">
+            <div class="analysis-head">
               <div>
-                <p class="panel-kicker">AI Inspector</p>
-                <h2>AI Diagnostics</h2>
-                <p class="panel-subtitle">Generate insights and remediation tips.</p>
+                <p class="analysis-kicker">AI Insight</p>
+                <h2>Analysis Panel</h2>
+                <p id="analysisMeta" class="analysis-meta">Run AI Analyze to generate actionable insights.</p>
               </div>
-              <button class="ghost-btn" type="button">Re-Analyze</button>
+              <div class="analysis-head-actions">
+                <button id="reAnalyzeBtn" class="primary-btn analysis-action-btn" type="button">Re-Analyze</button>
+                <label class="switch-row analysis-switch" for="deepAnalysisToggle">
+                  <input type="checkbox" id="deepAnalysisToggle" checked>
+                  <span id="deepAnalysisLabel">Deep Scan ON</span>
+                </label>
+                <label class="switch-row analysis-switch" for="autoReAnalyzeToggle">
+                  <input type="checkbox" id="autoReAnalyzeToggle" checked>
+                  <span id="autoReAnalyzeLabel">Auto Refresh ON</span>
+                </label>
+              </div>
             </div>
+
+            <div class="analysis-score-card" id="analysisScoreCard">
+              <p id="analysisScore" class="analysis-score">Performance Score: --/100</p>
+              <div class="analysis-score-track" aria-hidden="true">
+                <span id="analysisScoreBar" class="analysis-score-bar"></span>
+              </div>
+              <p id="analysisScoreDetail" class="analysis-score-detail">Penalties: slow 0, errors 0, duplicates 0.</p>
+            </div>
+
+            <div class="analysis-summary-grid">
+              <article class="analysis-summary-item">
+                <h3>Total Requests</h3>
+                <p id="analysisTotalRequests">0</p>
+              </article>
+              <article class="analysis-summary-item">
+                <h3>Errors</h3>
+                <p id="analysisErrorCount">0</p>
+              </article>
+              <article class="analysis-summary-item">
+                <h3>Avg Response</h3>
+                <p id="analysisAvgResponse">0 ms</p>
+              </article>
+              <article class="analysis-summary-item">
+                <h3>Slow (&gt;1000ms)</h3>
+                <p id="analysisSlowCount">0</p>
+              </article>
+              <article class="analysis-summary-item">
+                <h3>Duplicate Clusters</h3>
+                <p id="analysisDuplicateCount">0</p>
+              </article>
+            </div>
+
+            <ul id="analysisInsights" class="analysis-insights">
+              <li class="analysis-empty">No analysis yet. Click AI Analyze.</li>
+            </ul>
           </section>
         </section>
 
@@ -448,139 +551,7 @@
     </div>
   </div>
 
-  <div id="analysisBackdrop" class="analysis-backdrop hidden" aria-hidden="true"></div>
-  <div id="performanceBackdrop" class="performance-backdrop hidden" aria-hidden="true"></div>
   <div id="elementsBackdrop" class="elements-backdrop hidden" aria-hidden="true"></div>
-
-  <section id="analysisPanel" class="analysis-shell analysis-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="analysis-head">
-      <div>
-        <p class="analysis-kicker">AI Insight</p>
-        <h2>Analysis Panel</h2>
-        <p id="analysisMeta" class="analysis-meta">Run AI Analyze to generate actionable insights.</p>
-      </div>
-      <div class="analysis-head-actions">
-        <button id="reAnalyzeBtn" class="primary-btn analysis-action-btn" type="button">Re-Analyze</button>
-        <label class="switch-row analysis-switch" for="deepAnalysisToggle">
-          <input type="checkbox" id="deepAnalysisToggle" checked>
-          <span id="deepAnalysisLabel">Deep Scan ON</span>
-        </label>
-        <label class="switch-row analysis-switch" for="autoReAnalyzeToggle">
-          <input type="checkbox" id="autoReAnalyzeToggle" checked>
-          <span id="autoReAnalyzeLabel">Auto Refresh ON</span>
-        </label>
-        <button id="closeAnalysisBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close AI analysis panel">Close</button>
-      </div>
-    </div>
-
-    <div class="analysis-score-card" id="analysisScoreCard">
-      <p id="analysisScore" class="analysis-score">Performance Score: --/100</p>
-      <div class="analysis-score-track" aria-hidden="true">
-        <span id="analysisScoreBar" class="analysis-score-bar"></span>
-      </div>
-      <p id="analysisScoreDetail" class="analysis-score-detail">Penalties: slow 0, errors 0, duplicates 0.</p>
-    </div>
-
-    <div class="analysis-summary-grid">
-      <article class="analysis-summary-item">
-        <h3>Total Requests</h3>
-        <p id="analysisTotalRequests">0</p>
-      </article>
-      <article class="analysis-summary-item">
-        <h3>Errors</h3>
-        <p id="analysisErrorCount">0</p>
-      </article>
-      <article class="analysis-summary-item">
-        <h3>Avg Response</h3>
-        <p id="analysisAvgResponse">0 ms</p>
-      </article>
-      <article class="analysis-summary-item">
-        <h3>Slow (&gt;1000ms)</h3>
-        <p id="analysisSlowCount">0</p>
-      </article>
-      <article class="analysis-summary-item">
-        <h3>Duplicate Clusters</h3>
-        <p id="analysisDuplicateCount">0</p>
-      </article>
-    </div>
-
-    <ul id="analysisInsights" class="analysis-insights">
-      <li class="analysis-empty">No analysis yet. Click AI Analyze.</li>
-    </ul>
-  </section>
-
-  <section id="performancePanel" class="performance-shell performance-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="performance-head">
-      <div>
-        <p class="analysis-kicker">Performance</p>
-        <h2>Performance Tab</h2>
-        <p id="performanceMeta" class="analysis-meta">Collect local metrics from the tracked tab.</p>
-      </div>
-      <div class="performance-head-actions">
-        <button id="closePerformanceBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close performance panel">Close</button>
-      </div>
-    </div>
-
-    <div class="performance-layout">
-      <div class="performance-metrics-shell">
-        <h3>Local Metrics</h3>
-        <div class="performance-metric-grid">
-          <article class="perf-metric-card" id="perfCardLcp">
-            <p class="perf-metric-title">Largest Contentful Paint (LCP)</p>
-            <p id="perfLcpValue" class="perf-metric-value">--</p>
-            <p id="perfLcpNote" class="perf-metric-note">Waiting for data...</p>
-          </article>
-          <article class="perf-metric-card" id="perfCardCls">
-            <p class="perf-metric-title">Cumulative Layout Shift (CLS)</p>
-            <p id="perfClsValue" class="perf-metric-value">--</p>
-            <p id="perfClsNote" class="perf-metric-note">Waiting for data...</p>
-          </article>
-          <article class="perf-metric-card" id="perfCardInp">
-            <p class="perf-metric-title">Interaction to Next Paint (INP)</p>
-            <p id="perfInpValue" class="perf-metric-value">--</p>
-            <p id="perfInpNote" class="perf-metric-note">Waiting for data...</p>
-          </article>
-          <article class="perf-metric-card" id="perfCardFcp">
-            <p class="perf-metric-title">First Contentful Paint (FCP)</p>
-            <p id="perfFcpValue" class="perf-metric-value">--</p>
-            <p id="perfFcpNote" class="perf-metric-note">Waiting for data...</p>
-          </article>
-        </div>
-
-        <ul id="performanceInsights" class="analysis-insights performance-insights">
-          <li class="analysis-empty">No performance data yet. Click Record.</li>
-        </ul>
-      </div>
-
-      <aside class="performance-side-shell">
-        <section class="performance-env-shell" aria-label="Environment settings">
-          <h3>Environment Settings</h3>
-          <label class="perf-env-row" for="perfCpuSetting">
-            <span>CPU</span>
-            <select id="perfCpuSetting" disabled>
-              <option>No throttling</option>
-            </select>
-          </label>
-          <label class="perf-env-row" for="perfNetworkSetting">
-            <span>Network</span>
-            <select id="perfNetworkSetting" disabled>
-              <option>No throttling</option>
-            </select>
-          </label>
-          <label class="perf-env-check" for="perfDisableCache">
-            <input id="perfDisableCache" type="checkbox" disabled>
-            <span>Disable network cache</span>
-          </label>
-        </section>
-
-        <section class="performance-next-shell" aria-label="Performance actions">
-          <h3>Next Steps</h3>
-          <button id="recordPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record</button>
-          <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
-        </section>
-      </aside>
-    </div>
-  </section>
 
   <section id="elementsPanel" class="elements-shell elements-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="elements-head">

@@ -251,11 +251,15 @@ body.elements-open {
   z-index: 1;
 }
 
-body[data-section="requests"] .app-body {
+body[data-section="requests"] .app-body,
+body[data-section="performance"] .app-body,
+body[data-section="ai"] .app-body {
   grid-template-columns: minmax(0, 1fr);
 }
 
-body[data-section="requests"] .command-panel {
+body[data-section="requests"] .command-panel,
+body[data-section="performance"] .command-panel,
+body[data-section="ai"] .command-panel {
   display: none;
 }
 
@@ -1068,6 +1072,122 @@ tbody tr:hover {
   max-height: calc(100vh - 32px);
   box-shadow: var(--shadow-lg);
   animation: modal-rise 0.2s ease-out;
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .sidebar {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .sidebar-brand {
+    flex-wrap: wrap;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-header {
+    padding: 12px;
+  }
+
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-field {
+    width: 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-shell {
+    max-height: 55vh;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-name {
+    font-size: 13px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-actions,
+  .panel-tools {
+    width: 100%;
+  }
+
+  .segmented {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .source-list {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-badge {
+    width: 38px;
+    height: 38px;
+  }
+
+  .header-title h1 {
+    font-size: 18px;
+  }
+
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .profile-chip {
+    width: 34px;
+    height: 34px;
+  }
+
+  .table-shell {
+    max-height: 50vh;
+  }
+}
 }
 
 .performance-modal {

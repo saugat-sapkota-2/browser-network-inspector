@@ -378,29 +378,35 @@ function bindEvents() {
   dom.reloadTabBtn.addEventListener("click", onReloadClick);
   dom.reloadTabBtnSources.addEventListener("click", onReloadClick);
 
-  dom.analyzeNetworkBtn.addEventListener("click", () => {
-    runNetworkAnalysis();
-    openAnalysisPanel();
-  });
+  if (dom.analyzeNetworkBtn) {
+    dom.analyzeNetworkBtn.addEventListener("click", () => {
+      runNetworkAnalysis();
+      openAnalysisPanel();
+    });
+  }
 
   dom.webDarkerBtn.addEventListener("click", () => {
     void toggleWebDarker();
   });
 
-  dom.openPerformanceBtn.addEventListener("click", () => {
-    openPerformancePanel();
-    void recordPerformanceSnapshot({ withReload: true });
-  });
+  if (dom.openPerformanceBtn) {
+    dom.openPerformanceBtn.addEventListener("click", () => {
+      openPerformancePanel();
+      void recordPerformanceSnapshot({ withReload: true });
+    });
+  }
 
   dom.openElementsBtn.addEventListener("click", () => {
     openElementsPanel();
     void scanElementsSnapshot();
   });
 
-  dom.reAnalyzeBtn.addEventListener("click", () => {
-    runNetworkAnalysis();
-    openAnalysisPanel();
-  });
+  if (dom.reAnalyzeBtn) {
+    dom.reAnalyzeBtn.addEventListener("click", () => {
+      runNetworkAnalysis();
+      openAnalysisPanel();
+    });
+  }
 
   dom.deepAnalysisToggle.addEventListener("change", () => {
     state.analysis.deepMode = Boolean(dom.deepAnalysisToggle.checked);
@@ -425,13 +431,17 @@ function bindEvents() {
     }
   });
 
-  dom.closeAnalysisBtn.addEventListener("click", () => {
-    closeAnalysisPanel();
-  });
+  if (dom.closeAnalysisBtn) {
+    dom.closeAnalysisBtn.addEventListener("click", () => {
+      closeAnalysisPanel();
+    });
+  }
 
-  dom.analysisBackdrop.addEventListener("click", () => {
-    closeAnalysisPanel();
-  });
+  if (dom.analysisBackdrop) {
+    dom.analysisBackdrop.addEventListener("click", () => {
+      closeAnalysisPanel();
+    });
+  }
 
   dom.recordPerformanceBtn.addEventListener("click", () => {
     void recordPerformanceSnapshot();
@@ -441,13 +451,17 @@ function bindEvents() {
     void recordPerformanceSnapshot({ withReload: true });
   });
 
-  dom.closePerformanceBtn.addEventListener("click", () => {
-    closePerformancePanel();
-  });
+  if (dom.closePerformanceBtn) {
+    dom.closePerformanceBtn.addEventListener("click", () => {
+      closePerformancePanel();
+    });
+  }
 
-  dom.performanceBackdrop.addEventListener("click", () => {
-    closePerformancePanel();
-  });
+  if (dom.performanceBackdrop) {
+    dom.performanceBackdrop.addEventListener("click", () => {
+      closePerformancePanel();
+    });
+  }
 
   dom.scanElementsBtn.addEventListener("click", () => {
     void scanElementsSnapshot();
@@ -992,7 +1006,7 @@ function toggleFilter(filterKey) {
 }
 
 function syncFilterUi() {
-  const chips = dom.filterGroup.querySelectorAll(".filter-chip");
+  const chips = dom.filterGroup.querySelectorAll("button[data-filter]");
   const isAllActive =
     state.filters.types.size === 0 &&
     !state.filters.errorsOnly &&
@@ -1027,7 +1041,7 @@ function setSourceFilter(filterKey) {
 }
 
 function syncSourceFilterUi() {
-  const chips = dom.sourceFilterGroup.querySelectorAll(".source-filter-chip");
+  const chips = dom.sourceFilterGroup.querySelectorAll("button[data-source-filter]");
   for (const chip of chips) {
     chip.classList.toggle("is-active", chip.dataset.sourceFilter === state.sourceFilter);
   }
@@ -1288,59 +1302,28 @@ function scheduleAutoReanalyze() {
 }
 
 function openAnalysisPanel() {
-  if (state.performance.isOpen) {
-    closePerformancePanel();
-  }
-
-  if (state.elements.isOpen) {
-    closeElementsPanel();
-  }
+  setActiveSection("ai");
 
   state.analysis.isOpen = true;
-  dom.analysisPanel.classList.remove("hidden");
-  dom.analysisBackdrop.classList.remove("hidden");
-  dom.analysisPanel.setAttribute("aria-hidden", "false");
-  document.body.classList.add("analysis-open");
 
   if (state.analysis.stale && state.analysis.autoRefresh) {
     scheduleAutoReanalyze();
   }
-
-  dom.closeAnalysisBtn.focus();
 }
 
 function closeAnalysisPanel() {
   state.analysis.isOpen = false;
   clearAutoReanalyzeTimer();
-  dom.analysisPanel.classList.add("hidden");
-  dom.analysisBackdrop.classList.add("hidden");
-  dom.analysisPanel.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("analysis-open");
 }
 
 function openPerformancePanel() {
-  if (state.analysis.isOpen) {
-    closeAnalysisPanel();
-  }
-
-  if (state.elements.isOpen) {
-    closeElementsPanel();
-  }
+  setActiveSection("performance");
 
   state.performance.isOpen = true;
-  dom.performancePanel.classList.remove("hidden");
-  dom.performanceBackdrop.classList.remove("hidden");
-  dom.performancePanel.setAttribute("aria-hidden", "false");
-  document.body.classList.add("performance-open");
-  dom.closePerformanceBtn.focus();
 }
 
 function closePerformancePanel() {
   state.performance.isOpen = false;
-  dom.performancePanel.classList.add("hidden");
-  dom.performanceBackdrop.classList.add("hidden");
-  dom.performancePanel.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("performance-open");
 }
 
 function openElementsPanel() {
