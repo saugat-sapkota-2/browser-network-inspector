@@ -1,3 +1,5 @@
+// Network Monitor Lite v1.0.2- A lightweight network monitoring extension for developers. 
+
 const STORAGE_KEY = "nml_state_v1";
 const SLOW_THRESHOLD_MS = 500;
 const MONITOR_WINDOW_PATH = "popup.html";

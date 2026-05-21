@@ -1,3 +1,4 @@
+// Network Monitor Lite v1.0.2- A lightweight network monitoring extension for developers. 
 const TYPE_FILTER_KEYS = new Set(["xhrfetch", "images", "media", "scripts", "documents"]);
 const SOURCE_FILTER_KEYS = new Set(["all", "js", "image", "video", "other"]);
 const SCRIPT_FILE_EXTENSIONS = new Set(["js", "mjs", "cjs"]);
