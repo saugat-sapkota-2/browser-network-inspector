@@ -95,6 +95,7 @@ body.elements-open {
   gap: 18px;
   padding: 18px;
   animation: page-rise 0.35s ease-out;
+  align-items: start;
 }
 
 .sidebar {
@@ -106,6 +107,8 @@ body.elements-open {
   flex-direction: column;
   gap: 18px;
   min-height: calc(100vh - 36px);
+  overflow-y: auto;
+  z-index: 5;
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(12px);
 }
@@ -154,6 +157,7 @@ body.elements-open {
 }
 
 .nav-item {
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -176,6 +180,23 @@ body.elements-open {
   background: linear-gradient(120deg, rgba(91, 233, 255, 0.18), rgba(106, 163, 255, 0.12));
   border-color: rgba(91, 233, 255, 0.4);
   color: #e9fbff;
+}
+
+.nav-item.is-important {
+  border-color: rgba(162, 133, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(162, 133, 255, 0.15) inset;
+}
+
+.nav-badge {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border: 1px solid rgba(162, 133, 255, 0.6);
+  color: #e6dbff;
+  background: rgba(162, 133, 255, 0.18);
 }
 
 .nav-icon {
@@ -226,6 +247,16 @@ body.elements-open {
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 18px;
   align-items: start;
+  position: relative;
+  z-index: 1;
+}
+
+body[data-section="requests"] .app-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body[data-section="requests"] .command-panel {
+  display: none;
 }
 
 .app-header {
@@ -239,8 +270,7 @@ body.elements-open {
   border: 1px solid var(--border);
   background: rgba(13, 20, 32, 0.78);
   backdrop-filter: blur(16px);
-  position: sticky;
-  top: 18px;
+  position: relative;
   z-index: 20;
   box-shadow: var(--shadow-md);
 }
@@ -379,6 +409,26 @@ body.elements-open {
 .main-content {
   display: grid;
   gap: 18px;
+}
+
+.section-view {
+  display: none;
+  gap: 18px;
+}
+
+.section-view.is-active {
+  display: grid;
+}
+
+#dashboardPanel,
+#liveTrafficPanel,
+#performanceAnchor,
+#securityAnchor,
+#mediaAnchor,
+#aiAnchor,
+#exportAnchor,
+#settingsAnchor {
+  height: 0;
 }
 
 .panel {
@@ -575,6 +625,7 @@ body.elements-open {
     radial-gradient(circle at 50% 40%, #000 35%, transparent 36%),
     radial-gradient(circle at 80% 55%, #000 35%, transparent 36%);
   opacity: 0.8;
+  animation: chart-shift 6s ease-in-out infinite;
 }
 
 .chart-grid {
@@ -582,6 +633,7 @@ body.elements-open {
   inset: 0;
   background: repeating-linear-gradient(90deg, rgba(91, 233, 255, 0.05) 0, rgba(91, 233, 255, 0.05) 1px, transparent 1px, transparent 40px),
     repeating-linear-gradient(180deg, rgba(91, 233, 255, 0.05) 0, rgba(91, 233, 255, 0.05) 1px, transparent 1px, transparent 28px);
+  animation: grid-drift 12s linear infinite;
 }
 
 .hero-grid {
@@ -1765,6 +1817,30 @@ tbody tr:hover {
   }
 }
 
+@keyframes chart-shift {
+  0% {
+    transform: translateX(0) scaleY(1);
+  }
+
+  50% {
+    transform: translateX(6px) scaleY(1.04);
+  }
+
+  100% {
+    transform: translateX(0) scaleY(1);
+  }
+}
+
+@keyframes grid-drift {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(20px);
+  }
+}
+
 @media (max-width: 1280px) {
   .app-shell {
     grid-template-columns: 200px minmax(0, 1fr);
@@ -1849,5 +1925,9 @@ tbody tr:hover {
   .elements-modal {
     inset: 10px;
     max-height: calc(100vh - 20px);
+  }
+  .command-panel {
+    position: relative;
+    top: auto;
   }
 }

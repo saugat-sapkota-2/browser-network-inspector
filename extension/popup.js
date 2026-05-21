@@ -180,7 +180,9 @@ const dom = {
   sourceList: null,
   sourcesCount: null,
   logRows: null,
-  emptyState: null
+  emptyState: null,
+  navItems: [],
+  sectionViews: []
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -208,6 +210,7 @@ async function init() {
   state.targetTabId = parseTargetTabIdFromQuery();
   bindDom();
   bindEvents();
+  initNavigation();
 
   await requestInitialState();
   await loadWebDarkerState();
@@ -301,6 +304,42 @@ function bindDom() {
   dom.sourcesCount = document.getElementById("sourcesCount");
   dom.logRows = document.getElementById("logRows");
   dom.emptyState = document.getElementById("emptyState");
+  dom.navItems = Array.from(document.querySelectorAll(".sidebar-nav .nav-item[data-section]"));
+  dom.sectionViews = Array.from(document.querySelectorAll(".section-view"));
+}
+
+function initNavigation() {
+  if (!dom.navItems.length || !dom.sectionViews.length) {
+    return;
+  }
+
+  dom.navItems.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+      setActiveSection(item.dataset.section || "");
+    });
+  });
+
+  const defaultSection =
+    dom.navItems.find((item) => item.classList.contains("is-active"))?.dataset.section ||
+    "dashboard";
+  setActiveSection(defaultSection);
+}
+
+function setActiveSection(section) {
+  if (!section) {
+    return;
+  }
+
+  document.body.dataset.section = section;
+
+  dom.sectionViews.forEach((view) => {
+    view.classList.toggle("is-active", view.dataset.section === section);
+  });
+
+  dom.navItems.forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.section === section);
+  });
 }
 
 function bindEvents() {

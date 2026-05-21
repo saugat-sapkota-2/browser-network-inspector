@@ -22,49 +22,49 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-item" type="button">
+        <a class="nav-item is-active" href="#" data-section="dashboard">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h6v8H4v-8Zm10-8h6v16h-6V4Zm-4 6h4v10h-4V10Z" /></svg>
           </span>
           <span>Dashboard</span>
-        </button>
-        <a class="nav-item is-important" href="#captureSourcesPanel">
+        </a>
+        <a class="nav-item is-important" href="#" data-section="capture">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4V4Zm0 8h10v8H4v-8Zm12 0h4v8h-4v-8Z" /></svg></span>
           <span>Capture Source</span>
           <span class="nav-badge">IMP</span>
         </a>
-        <button class="nav-item" type="button">
+        <a class="nav-item" href="#" data-section="live-traffic">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v4H4V4Zm0 6h10v4H4v-4Zm0 6h7v4H4v-4Z" /></svg></span>
           <span>Live Traffic</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="requests">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5V4Zm0 6h14v10H5V10Zm4 2v6h6v-6H9Z" /></svg></span>
           <span>Requests</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="performance">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h4V6H4v12Zm6 0h4V10h-4v8Zm6 0h4V4h-4v14Z" /></svg></span>
           <span>Performance</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="security">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-3Zm0 4a3 3 0 0 1 3 3c0 2-1.6 3.6-3 5-1.4-1.4-3-3-3-5a3 3 0 0 1 3-3Z" /></svg></span>
           <span>Security Analysis</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="media">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H5V5Zm0 12h8v2H5v-2Zm10 0h4v2h-4v-2Z" /></svg></span>
           <span>Media Assets</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="ai">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a6 6 0 0 1 6 6c0 2.8-1.6 5.2-4 6.2V20h-4v-3.8c-2.4-1-4-3.4-4-6.2a6 6 0 0 1 6-6Z" /></svg></span>
           <span>AI Inspector</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="export">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v8H4V4Zm0 10h10v6H4v-6Zm12 0h4v6h-4v-6Z" /></svg></span>
           <span>Export Center</span>
-        </button>
-        <button class="nav-item" type="button">
+        </a>
+        <a class="nav-item" href="#" data-section="settings">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8 4a7.96 7.96 0 0 1-.6 3l2.1 1.6-2 3.4-2.5-1a8.3 8.3 0 0 1-2.6 1.5l-.4 2.7h-4l-.4-2.7a8.3 8.3 0 0 1-2.6-1.5l-2.5 1-2-3.4L4.6 15A7.96 7.96 0 0 1 4 12c0-1.1.2-2.1.6-3L2.5 7.4l2-3.4 2.5 1a8.3 8.3 0 0 1 2.6-1.5l.4-2.7h4l.4 2.7a8.3 8.3 0 0 1 2.6 1.5l2.5-1 2 3.4L19.4 9c.4.9.6 1.9.6 3Z" /></svg></span>
           <span>Settings</span>
-        </button>
+        </a>
       </nav>
 
       <div class="sidebar-footer">
@@ -119,7 +119,8 @@
       </header>
 
       <div class="main-content">
-        <section class="hero-grid">
+        <section class="section-view is-active" data-section="dashboard">
+          <section class="hero-grid">
           <div class="panel hero-panel">
             <div class="panel-header">
               <div>
@@ -229,8 +230,27 @@
             </div>
           </div>
         </section>
+        </section>
 
-        <section class="panel request-panel" aria-live="polite">
+        <section class="section-view" data-section="live-traffic">
+          <section class="panel" aria-live="polite">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Live Traffic</p>
+                <h2>Traffic Graph</h2>
+                <p class="panel-subtitle">Streaming activity snapshot for the last five minutes.</p>
+              </div>
+              <span class="chip">Last 5 min</span>
+            </div>
+            <div class="chart-graphic">
+              <div class="chart-line"></div>
+              <div class="chart-grid"></div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-view" data-section="requests">
+          <section id="requestsPanel" class="panel request-panel" aria-live="polite">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Live Traffic</p>
@@ -275,7 +295,9 @@
             <div id="emptyState" class="empty-state">No network activity captured yet.</div>
           </div>
         </section>
+        </section>
 
+        <section class="section-view" data-section="capture">
         <section id="captureSourcesPanel" class="panel assets-panel capture-panel" aria-live="polite">
           <div class="panel-header">
             <div>
@@ -303,6 +325,86 @@
             </div>
           </div>
           <div id="sourceList" class="source-list"></div>
+        </section>
+        </section>
+
+        <section class="section-view" data-section="performance">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Performance</p>
+                <h2>Performance Overview</h2>
+                <p class="panel-subtitle">Open the Performance tab for full diagnostics.</p>
+              </div>
+              <button class="ghost-btn" type="button">Open Performance</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-view" data-section="security">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Security Analysis</p>
+                <h2>Threat Signals</h2>
+                <p class="panel-subtitle">Review AI insights for suspicious activity.</p>
+              </div>
+              <button class="ghost-btn" type="button">AI Analyze</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-view" data-section="media">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Media Assets</p>
+                <h2>Asset Explorer</h2>
+                <p class="panel-subtitle">Filter and inspect media payloads.</p>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-view" data-section="ai">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">AI Inspector</p>
+                <h2>AI Diagnostics</h2>
+                <p class="panel-subtitle">Generate insights and remediation tips.</p>
+              </div>
+              <button class="ghost-btn" type="button">Re-Analyze</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-view" data-section="export">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Export Center</p>
+                <h2>Export Logs</h2>
+                <p class="panel-subtitle">Choose JSON or CSV exports from Requests.</p>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-btn" type="button">Export JSON</button>
+                <button class="ghost-btn" type="button">Export CSV</button>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-view" data-section="settings">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Settings</p>
+                <h2>Workspace Preferences</h2>
+                <p class="panel-subtitle">Tune capture limits, retention, and UI.</p>
+              </div>
+            </div>
+          </section>
         </section>
       </div>
 
