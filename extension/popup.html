@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Network Monitor Lite</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Primary navigation">
@@ -24,34 +26,42 @@
       <nav class="sidebar-nav">
         <a class="nav-item is-active" href="#" data-section="dashboard">
           <span class="nav-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h6v8H4v-8Zm10-8h6v16h-6V4Zm-4 6h4v10h-4V10Z" /></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 12h6v8H4v-8Zm10-8h6v16h-6V4Zm-4 6h4v10h-4V10Z" />
+            </svg>
           </span>
           <span>Dashboard</span>
         </a>
         <a class="nav-item is-important" href="#" data-section="capture">
-          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4V4Zm0 8h10v8H4v-8Zm12 0h4v8h-4v-8Z" /></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 4h16v6H4V4Zm0 8h10v8H4v-8Zm12 0h4v8h-4v-8Z" />
+            </svg></span>
           <span>Capture Source</span>
           <span class="nav-badge">IMP</span>
         </a>
         <a class="nav-item" href="#" data-section="requests">
-          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5V4Zm0 6h14v10H5V10Zm4 2v6h6v-6H9Z" /></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4h14v4H5V4Zm0 6h14v10H5V10Zm4 2v6h6v-6H9Z" />
+            </svg></span>
           <span>Requests</span>
         </a>
         <a class="nav-item" href="#" data-section="performance">
-          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h4V6H4v12Zm6 0h4V10h-4v8Zm6 0h4V4h-4v14Z" /></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 18h4V6H4v12Zm6 0h4V10h-4v8Zm6 0h4V4h-4v14Z" />
+            </svg></span>
           <span>Performance</span>
         </a>
         <a class="nav-item" href="#" data-section="ai">
-          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a6 6 0 0 1 6 6c0 2.8-1.6 5.2-4 6.2V20h-4v-3.8c-2.4-1-4-3.4-4-6.2a6 6 0 0 1 6-6Z" /></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 4a6 6 0 0 1 6 6c0 2.8-1.6 5.2-4 6.2V20h-4v-3.8c-2.4-1-4-3.4-4-6.2a6 6 0 0 1 6-6Z" />
+            </svg></span>
           <span>AI Inspector</span>
         </a>
         <a class="nav-item" href="#" data-section="live-traffic">
-          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v4H4V4Zm0 6h10v4H4v-4Zm0 6h7v4H4v-4Z" /></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 4h16v4H4V4Zm0 6h10v4H4v-4Zm0 6h7v4H4v-4Z" />
+            </svg></span>
           <span>Live Traffic</span>
-        </a>
-        <a class="nav-item" href="#" data-section="settings">
-          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8 4a7.96 7.96 0 0 1-.6 3l2.1 1.6-2 3.4-2.5-1a8.3 8.3 0 0 1-2.6 1.5l-.4 2.7h-4l-.4-2.7a8.3 8.3 0 0 1-2.6-1.5l-2.5 1-2-3.4L4.6 15A7.96 7.96 0 0 1 4 12c0-1.1.2-2.1.6-3L2.5 7.4l2-3.4 2.5 1a8.3 8.3 0 0 1 2.6-1.5l.4-2.7h4l.4 2.7a8.3 8.3 0 0 1 2.6 1.5l2.5-1 2 3.4L19.4 9c.4.9.6 1.9.6 3Z" /></svg></span>
-          <span>Settings</span>
         </a>
       </nav>
 
@@ -61,7 +71,7 @@
           <span class="status-value">Live</span>
         </div>
         <div class="builder-credit">
-          <span>Built by reinF</span>
+          <span>Built by Saugat Sapkota</span>
         </div>
       </div>
     </aside>
@@ -81,26 +91,23 @@
 
         <label class="search-field" aria-label="Filter requests">
           <span class="search-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6 6 0 1 0-.7.7l.3.3v.8L20 20l1-1-5.5-5Zm-5.5 0a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" /></svg>
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M15.5 14h-.8l-.3-.3a6 6 0 1 0-.7.7l.3.3v.8L20 20l1-1-5.5-5Zm-5.5 0a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" />
+            </svg>
           </span>
-          <input
-            id="searchInput"
-            type="search"
-            placeholder="Filter requests, domains, status..."
-            autocomplete="off"
-            spellcheck="false"
-          >
+          <input id="searchInput" type="search" placeholder="Filter requests, domains, status..." autocomplete="off"
+            spellcheck="false">
         </label>
 
         <div class="header-actions">
-          <button class="icon-btn" type="button" aria-label="Toggle theme">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18c.4 0 .8 0 1.2-.1A8 8 0 0 1 12 5c0-1.1.2-2.1.5-3-.2 0-.3 0-.5 0Z" /></svg>
-          </button>
-          <button class="icon-btn" type="button" aria-label="Notifications">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22Zm7-6V11c0-3.4-2-6-5-6.8V3a2 2 0 1 0-4 0v1.2C7 5 5 7.6 5 11v5l-2 2v1h18v-1l-2-2Z" /></svg>
-          </button>
-          <button class="icon-btn" type="button" aria-label="Settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8 4a7.96 7.96 0 0 1-.6 3l2.1 1.6-2 3.4-2.5-1a8.3 8.3 0 0 1-2.6 1.5l-.4 2.7h-4l-.4-2.7a8.3 8.3 0 0 1-2.6-1.5l-2.5 1-2-3.4L4.6 15A7.96 7.96 0 0 1 4 12c0-1.1.2-2.1.6-3L2.5 7.4l2-3.4 2.5 1a8.3 8.3 0 0 1 2.6-1.5l.4-2.7h4l.4 2.7a8.3 8.3 0 0 1 2.6 1.5l2.5-1 2 3.4L19.4 9c.4.9.6 1.9.6 3Z" /></svg>
+          <button class="icon-btn" type="button" aria-label="Notifications" style="position: relative;">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22Zm7-6V11c0-3.4-2-6-5-6.8V3a2 2 0 1 0-4 0v1.2C7 5 5 7.6 5 11v5l-2 2v1h18v-1l-2-2Z" />
+            </svg>
+            <span id="notificationBadge" class="nav-badge hidden"
+              style="position: absolute; top: -4px; right: -4px; background: var(--danger); border-color: rgba(255, 122, 143, 0.4); color: white; padding: 2px 6px; font-size: 10px; line-height: 1;">0</span>
           </button>
           <div class="profile-chip" aria-label="Profile">RS</div>
         </div>
@@ -109,114 +116,115 @@
       <div class="main-content">
         <section class="section-view is-active" data-section="dashboard">
           <section class="hero-grid">
-          <div class="panel hero-panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-kicker">Live Monitoring</p>
-                <h2>Traffic Overview</h2>
-                <p class="panel-subtitle">Real-time visibility across active requests, latency, and bandwidth.</p>
-              </div>
-              <div class="panel-actions">
-                <button id="analyzeNetworkBtn" class="primary-btn" type="button">AI Analyze</button>
-                <button id="openElementsBtn" class="ghost-btn" type="button">Elements</button>
-              </div>
-            </div>
-
-            <div class="stats-grid">
-              <article class="stat-card">
-                <div class="stat-meta">
-                  <span>Total Requests</span>
-                  <span class="stat-trend up">+4%</span>
-                </div>
-                <p id="statTotal">0</p>
-              </article>
-              <article class="stat-card success-card">
-                <div class="stat-meta">
-                  <span>Success Rate</span>
-                  <span class="stat-trend up">+2%</span>
-                </div>
-                <p id="statSuccess">0</p>
-              </article>
-              <article class="stat-card error-card">
-                <div class="stat-meta">
-                  <span>Errors</span>
-                  <span class="stat-trend down">-1%</span>
-                </div>
-                <p id="statErrors">0</p>
-              </article>
-              <article class="stat-card">
-                <div class="stat-meta">
-                  <span>Avg Latency</span>
-                  <span class="stat-trend warn">+9ms</span>
-                </div>
-                <p id="statAvgLatency">0 ms</p>
-              </article>
-              <article class="stat-card">
-                <div class="stat-meta">
-                  <span>Total Bandwidth</span>
-                  <span class="stat-trend up">+12%</span>
-                </div>
-                <p id="statTotalData">0 B</p>
-              </article>
-            </div>
-
-            <div class="chart-shell" aria-hidden="true">
-              <div class="chart-header">
-                <span>Live Traffic Graph</span>
-                <span class="chip">Last 5 min</span>
-              </div>
-              <div class="chart-graphic">
-                <div class="chart-line"></div>
-                <div class="chart-grid"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="panel hero-panel side-panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-kicker">AI Inspector</p>
-                <h2>Security Insights</h2>
-                <p class="panel-subtitle">Threat signals, privacy risks, and anomaly clusters.</p>
-              </div>
-              <button class="ghost-btn" type="button">Open Insights</button>
-            </div>
-            <ul class="insight-list" aria-live="polite">
-              <li class="insight-card is-warning">
+            <div class="panel hero-panel">
+              <div class="panel-header">
                 <div>
-                  <span class="insight-title">Suspicious request spike</span>
-                  <span class="insight-meta">3 domains exceeded baseline</span>
+                  <p class="panel-kicker">Live Monitoring</p>
+                  <h2>Traffic Overview</h2>
+                  <p class="panel-subtitle">Real-time visibility across active requests, latency, and bandwidth.</p>
                 </div>
-                <span class="insight-level">Medium</span>
-              </li>
-              <li class="insight-card is-danger">
-                <div>
-                  <span class="insight-title">Tracker detected</span>
-                  <span class="insight-meta">Fingerprinting script spotted</span>
+                <div class="panel-actions">
+                  <button id="analyzeNetworkBtn" class="primary-btn" type="button">AI Analyze</button>
+                  <button id="openElementsBtn" class="ghost-btn" type="button">Elements</button>
                 </div>
-                <span class="insight-level">High</span>
-              </li>
-              <li class="insight-card is-good">
-                <div>
-                  <span class="insight-title">Caching optimized</span>
-                  <span class="insight-meta">Duplicate assets reduced</span>
-                </div>
-                <span class="insight-level">Low</span>
-              </li>
-            </ul>
-
-            <div class="mini-panel-grid" aria-hidden="true">
-              <div class="mini-panel">
-                <h3>Domain Heatmap</h3>
-                <div class="heatmap-grid"></div>
               </div>
-              <div class="mini-panel">
-                <h3>Response Timeline</h3>
-                <div class="waterfall"></div>
+
+              <div class="stats-grid">
+                <article class="stat-card">
+                  <div class="stat-meta">
+                    <span>Total Requests</span>
+                    <span class="stat-trend up">+4%</span>
+                  </div>
+                  <p id="statTotal">0</p>
+                </article>
+                <article class="stat-card success-card">
+                  <div class="stat-meta">
+                    <span>Success Rate</span>
+                    <span class="stat-trend up">+2%</span>
+                  </div>
+                  <p id="statSuccess">0</p>
+                </article>
+                <article class="stat-card error-card" id="errorCardBtn" style="cursor: pointer;" role="button"
+                  tabindex="0" title="Click to view errors">
+                  <div class="stat-meta">
+                    <span>Errors</span>
+                    <span class="stat-trend down">-1%</span>
+                  </div>
+                  <p id="statErrors">0</p>
+                </article>
+                <article class="stat-card">
+                  <div class="stat-meta">
+                    <span>Avg Latency</span>
+                    <span class="stat-trend warn">+9ms</span>
+                  </div>
+                  <p id="statAvgLatency">0 ms</p>
+                </article>
+                <article class="stat-card">
+                  <div class="stat-meta">
+                    <span>Total Bandwidth</span>
+                    <span class="stat-trend up">+12%</span>
+                  </div>
+                  <p id="statTotalData">0 B</p>
+                </article>
+              </div>
+
+              <div class="chart-shell" aria-hidden="true">
+                <div class="chart-header">
+                  <span>Live Traffic Graph</span>
+                  <span class="chip">Last 5 min</span>
+                </div>
+                <div class="chart-graphic">
+                  <div class="chart-line"></div>
+                  <div class="chart-grid"></div>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+
+            <div class="panel hero-panel side-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">AI Inspector</p>
+                  <h2>Security Insights</h2>
+                  <p class="panel-subtitle">Threat signals, privacy risks, and anomaly clusters.</p>
+                </div>
+                <button class="ghost-btn" type="button">Open Insights</button>
+              </div>
+              <ul class="insight-list" aria-live="polite">
+                <li class="insight-card is-warning">
+                  <div>
+                    <span class="insight-title">Suspicious request spike</span>
+                    <span class="insight-meta">3 domains exceeded baseline</span>
+                  </div>
+                  <span class="insight-level">Medium</span>
+                </li>
+                <li class="insight-card is-danger">
+                  <div>
+                    <span class="insight-title">Tracker detected</span>
+                    <span class="insight-meta">Fingerprinting script spotted</span>
+                  </div>
+                  <span class="insight-level">High</span>
+                </li>
+                <li class="insight-card is-good">
+                  <div>
+                    <span class="insight-title">Caching optimized</span>
+                    <span class="insight-meta">Duplicate assets reduced</span>
+                  </div>
+                  <span class="insight-level">Low</span>
+                </li>
+              </ul>
+
+              <div class="mini-panel-grid" aria-hidden="true">
+                <div class="mini-panel">
+                  <h3>Domain Heatmap</h3>
+                  <div class="heatmap-grid"></div>
+                </div>
+                <div class="mini-panel">
+                  <h3>Response Timeline</h3>
+                  <div class="waterfall"></div>
+                </div>
+              </div>
+            </div>
+          </section>
         </section>
 
         <section class="section-view" data-section="live-traffic">
@@ -238,81 +246,85 @@
 
         <section class="section-view" data-section="requests">
           <section id="requestsPanel" class="panel request-panel" aria-live="polite">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Live Traffic</p>
-              <h2>Requests</h2>
-              <p class="panel-subtitle">Sticky headers, status pills, and AI risk scoring.</p>
-            </div>
-            <div class="panel-actions">
-              <div class="segmented" id="filterGroup">
-                <button class="segment is-active" data-filter="all">All</button>
-                <button class="segment" data-filter="xhrfetch">XHR</button>
-                <button class="segment" data-filter="images">Images</button>
-                <button class="segment" data-filter="media">Media</button>
-                <button class="segment" data-filter="scripts">Scripts</button>
-                <button class="segment" data-filter="documents">Docs</button>
-                <button class="segment" data-filter="errors">Errors</button>
-                <button class="segment" data-filter="slow">Slow</button>
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Live Traffic</p>
+                <h2>Requests</h2>
+                <p class="panel-subtitle">Sticky headers, status pills, and AI risk scoring.</p>
               </div>
-              <div class="panel-tools">
-                <button id="reloadTabBtn" class="ghost-btn" type="button">Reload</button>
-                <button id="clearLogsBtn" class="ghost-btn" type="button">Clear</button>
-                <button id="exportJsonBtn" class="ghost-btn" type="button">Export JSON</button>
-                <button id="exportCsvBtn" class="ghost-btn" type="button">Export CSV</button>
+              <div class="panel-actions">
+                <div class="segmented" id="filterGroup">
+                  <button class="segment is-active" data-filter="all">All</button>
+                  <button class="segment" data-filter="xhrfetch">XHR</button>
+                  <button class="segment" data-filter="images">Images</button>
+                  <button class="segment" data-filter="media">Media</button>
+                  <button class="segment" data-filter="scripts">Scripts</button>
+                  <button class="segment" data-filter="documents">Docs</button>
+                  <button class="segment" data-filter="errors">Errors</button>
+                  <button class="segment" data-filter="slow">Slow</button>
+                </div>
+                <div class="panel-tools">
+                  <button id="reloadTabBtn" class="ghost-btn" type="button">Reload</button>
+                  <button id="clearLogsBtn" class="ghost-btn" type="button">Clear</button>
+                  <button id="exportJsonBtn" class="ghost-btn" type="button">Export JSON</button>
+                  <button id="exportCsvBtn" class="ghost-btn" type="button">Export CSV</button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>Method</th>
-                  <th>URL</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th>Type</th>
-                  <th>Time</th>
-                  <th>Latency</th>
-                </tr>
-              </thead>
-              <tbody id="logRows"></tbody>
-            </table>
-            <div id="emptyState" class="empty-state">No network activity captured yet.</div>
-          </div>
-        </section>
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Method</th>
+                    <th>URL</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Time</th>
+                    <th>Latency</th>
+                  </tr>
+                </thead>
+                <tbody id="logRows"></tbody>
+              </table>
+              <div id="emptyState" class="empty-state">No network activity captured yet.</div>
+            </div>
+          </section>
         </section>
 
         <section class="section-view" data-section="capture">
-        <section id="captureSourcesPanel" class="panel assets-panel capture-panel" aria-live="polite">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Assets</p>
-              <h2>Capture Source</h2>
-            </div>
-            <div class="panel-actions">
-              <span id="sourcesCount" class="count-pill">0</span>
-              <div class="segmented is-compact" id="sourceFilterGroup">
-                <button class="segment is-active" data-source-filter="all">All</button>
-                <button class="segment" data-source-filter="js">.js</button>
-                <button class="segment" data-source-filter="image">Image</button>
-                <button class="segment" data-source-filter="video">Video</button>
-                <button class="segment" data-source-filter="other">Other</button>
+          <section id="captureSourcesPanel" class="panel assets-panel capture-panel" aria-live="polite">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Assets</p>
+                <h2>Capture Source</h2>
               </div>
-              <div class="view-toggle">
-                <button class="icon-btn" type="button" aria-label="Grid view">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" /></svg>
-                </button>
-                <button class="icon-btn" type="button" aria-label="List view">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z" /></svg>
-                </button>
+              <div class="panel-actions">
+                <span id="sourcesCount" class="count-pill">0</span>
+                <div class="segmented is-compact" id="sourceFilterGroup">
+                  <button class="segment is-active" data-source-filter="all">All</button>
+                  <button class="segment" data-source-filter="js">.js</button>
+                  <button class="segment" data-source-filter="image">Image</button>
+                  <button class="segment" data-source-filter="video">Video</button>
+                  <button class="segment" data-source-filter="other">Other</button>
+                </div>
+                <div class="view-toggle">
+                  <button class="icon-btn" type="button" aria-label="Grid view">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" />
+                    </svg>
+                  </button>
+                  <button class="icon-btn" type="button" aria-label="List view">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z" />
+                    </svg>
+                  </button>
+                </div>
+                <button id="reloadTabBtnSources" class="ghost-btn" type="button">Reload</button>
               </div>
-              <button id="reloadTabBtnSources" class="ghost-btn" type="button">Reload</button>
             </div>
-          </div>
-          <div id="sourceList" class="source-list"></div>
-        </section>
+            <div id="sourceList" class="source-list"></div>
+          </section>
         </section>
 
         <section class="section-view" data-section="performance">
@@ -380,7 +392,8 @@
                 <section class="performance-next-shell" aria-label="Performance actions">
                   <h3>Next Steps</h3>
                   <button id="recordPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record</button>
-                  <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and Reload</button>
+                  <button id="recordReloadPerformanceBtn" class="ghost-btn perf-action-btn" type="button">Record and
+                    Reload</button>
                 </section>
               </aside>
             </div>
@@ -531,7 +544,8 @@
           </label>
         </div>
         <div class="command-section">
-          <button id="webDarkerBtn" class="ghost-btn webdarker-btn" type="button" aria-pressed="false">WebDarker</button>
+          <button id="webDarkerBtn" class="ghost-btn webdarker-btn" type="button"
+            aria-pressed="false">WebDarker</button>
           <button class="ghost-btn" type="button">Record Session</button>
           <button class="ghost-btn" type="button">Advanced Filters</button>
         </div>
@@ -541,17 +555,20 @@
 
   <div id="elementsBackdrop" class="elements-backdrop hidden" aria-hidden="true"></div>
 
-  <section id="elementsPanel" class="elements-shell elements-modal hidden" aria-live="polite" aria-hidden="true" role="dialog" aria-modal="true">
+  <section id="elementsPanel" class="elements-shell elements-modal hidden" aria-live="polite" aria-hidden="true"
+    role="dialog" aria-modal="true">
     <div class="elements-head">
       <div>
         <p class="analysis-kicker">Elements</p>
         <h2>Elements Tab</h2>
-        <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML, CSS, JavaScript hooks, and animations.</p>
+        <p id="elementsMeta" class="analysis-meta">Scan the tracked tab to inspect selectors and element-level HTML,
+          CSS, JavaScript hooks, and animations.</p>
       </div>
       <div class="elements-head-actions">
         <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
         <button id="pickElementBtn" class="ghost-btn" type="button">Pick On Page</button>
-        <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button" aria-label="Close elements panel">Close</button>
+        <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button"
+          aria-label="Close elements panel">Close</button>
       </div>
     </div>
 
@@ -562,22 +579,12 @@
           <span id="elementsCount">0</span>
         </div>
         <div class="element-selector-input-row">
-          <input
-            id="elementSelectorInput"
-            type="text"
-            placeholder="Find by CSS selector (e.g. #app .btn-primary)"
-            autocomplete="off"
-            spellcheck="false"
-          >
+          <input id="elementSelectorInput" type="text" placeholder="Find by CSS selector (e.g. #app .btn-primary)"
+            autocomplete="off" spellcheck="false">
           <button id="applyElementSelectorBtn" class="ghost-btn" type="button">Select</button>
         </div>
-        <input
-          id="elementsSearchInput"
-          type="search"
-          placeholder="Filter loaded selectors..."
-          autocomplete="off"
-          spellcheck="false"
-        >
+        <input id="elementsSearchInput" type="search" placeholder="Filter loaded selectors..." autocomplete="off"
+          spellcheck="false">
         <div id="elementSelectorList" class="element-selector-list"></div>
       </section>
 
@@ -587,7 +594,8 @@
           <div class="element-insight-badges" aria-live="polite">
             <span id="elementTagBadge" class="element-insight-badge is-tag is-active">Tag: --</span>
             <span id="elementJsBadge" class="element-insight-badge is-js is-inactive">JavaScript: none</span>
-            <span id="elementAnimationBadge" class="element-insight-badge is-animation is-inactive">Animation: none</span>
+            <span id="elementAnimationBadge" class="element-insight-badge is-animation is-inactive">Animation:
+              none</span>
           </div>
         </div>
 
@@ -602,11 +610,13 @@
           </article>
           <article class="element-code-shell is-js-shell">
             <p class="element-code-label">JavaScript</p>
-            <pre id="elementJsView" class="element-code-view">Select an element selector to inspect JavaScript handlers and hooks.</pre>
+            <pre id="elementJsView"
+              class="element-code-view">Select an element selector to inspect JavaScript handlers and hooks.</pre>
           </article>
           <article class="element-code-shell is-animation-shell">
             <p class="element-code-label">Animations</p>
-            <pre id="elementAnimationView" class="element-code-view">Select an element selector to inspect CSS animations and transitions.</pre>
+            <pre id="elementAnimationView"
+              class="element-code-view">Select an element selector to inspect CSS animations and transitions.</pre>
           </article>
         </div>
       </section>
@@ -615,4 +625,5 @@
 
   <script src="popup.js"></script>
 </body>
+
 </html>

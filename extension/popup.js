@@ -279,6 +279,8 @@ function bindDom() {
   dom.statErrors = document.getElementById("statErrors");
   dom.statAvgLatency = document.getElementById("statAvgLatency");
   dom.statTotalData = document.getElementById("statTotalData");
+  dom.notificationBadge = document.getElementById("notificationBadge");
+  dom.errorCardBtn = document.getElementById("errorCardBtn");
   dom.analysisMeta = document.getElementById("analysisMeta");
   dom.analysisPanel = document.getElementById("analysisPanel");
   dom.analysisBackdrop = document.getElementById("analysisBackdrop");
@@ -391,6 +393,22 @@ function bindEvents() {
     dom.analyzeNetworkBtn.addEventListener("click", () => {
       runNetworkAnalysis();
       openAnalysisPanel();
+    });
+  }
+
+  if (dom.errorCardBtn) {
+    const handleViewErrors = () => {
+      setActiveSection("requests");
+      if (!state.filters.errorsOnly) {
+        toggleFilter("errors");
+      }
+    };
+    dom.errorCardBtn.addEventListener("click", handleViewErrors);
+    dom.errorCardBtn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleViewErrors();
+      }
     });
   }
 
@@ -1235,6 +1253,17 @@ function updateSummaryUi() {
   dom.statErrors.textContent = formatInteger(state.summary.errors);
   dom.statAvgLatency.textContent = `${Math.round(Number(state.summary.avgLatency) || 0)} ms`;
   dom.statTotalData.textContent = formatBytes(state.summary.totalData);
+  
+  if (dom.notificationBadge) {
+    const errors = Number(state.summary.errors) || 0;
+    if (errors > 0) {
+      dom.notificationBadge.textContent = errors;
+      dom.notificationBadge.classList.remove("hidden");
+    } else {
+      dom.notificationBadge.classList.add("hidden");
+    }
+  }
+
   updateTrafficChart();
   updateMiniPanels();
 }

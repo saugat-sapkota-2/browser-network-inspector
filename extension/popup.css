@@ -240,8 +240,36 @@ body.elements-open {
 }
 
 .builder-credit {
-  font-size: 11px;
-  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 5px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(91, 233, 255, 0.15), rgba(162, 133, 255, 0.25), rgba(255, 122, 143, 0.15));
+  background-size: 200% 200%;
+  border: 1px solid rgba(162, 133, 255, 0.5);
+  color: #fff;
+  text-shadow: 0 0 10px rgba(162, 133, 255, 0.8);
+  animation: credit-glow 3s ease infinite;
+}
+
+@keyframes credit-glow {
+  0% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 5px rgba(162, 133, 255, 0.3);
+    border-color: rgba(162, 133, 255, 0.4);
+  }
+  50% {
+    background-position: 100% 50%;
+    box-shadow: 0 0 15px rgba(162, 133, 255, 0.6), 0 0 8px rgba(91, 233, 255, 0.4);
+    border-color: rgba(91, 233, 255, 0.6);
+  }
+  100% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 5px rgba(162, 133, 255, 0.3);
+    border-color: rgba(162, 133, 255, 0.4);
+  }
 }
 
 .app-body {
