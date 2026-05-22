@@ -747,6 +747,13 @@ body[data-section="ai"] .command-panel {
   height: 80px;
   background: linear-gradient(120deg, rgba(91, 233, 255, 0.08), rgba(162, 133, 255, 0.1), rgba(95, 242, 182, 0.08));
   position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 6px;
+  padding: 10px;
+  overflow: hidden;
 }
 
 .waterfall::after,
@@ -757,6 +764,30 @@ body[data-section="ai"] .command-panel {
   border-radius: 8px;
   background: repeating-linear-gradient(90deg, rgba(91, 233, 255, 0.2) 0, rgba(91, 233, 255, 0.2) 10px, transparent 10px, transparent 22px);
   opacity: 0.4;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.heatmap-bar,
+.timeline-bar {
+  position: relative;
+  z-index: 2;
+  border-radius: 6px;
+  min-height: 8px;
+  box-shadow: 0 10px 20px rgba(4, 12, 20, 0.4);
+}
+
+.heatmap-bar {
+  background: linear-gradient(180deg, rgba(91, 233, 255, 0.75), rgba(91, 233, 255, 0.12));
+}
+
+.timeline-bar {
+  background: linear-gradient(180deg, rgba(162, 133, 255, 0.7), rgba(162, 133, 255, 0.12));
+}
+
+.heatmap-grid.is-empty .heatmap-bar,
+.waterfall.is-empty .timeline-bar {
+  opacity: 0.45;
 }
 
 .segmented {
@@ -1074,6 +1105,7 @@ tbody tr:hover {
   max-height: calc(100vh - 32px);
   box-shadow: var(--shadow-lg);
   animation: modal-rise 0.2s ease-out;
+}
 
 @media (max-width: 760px) {
   .app-shell {

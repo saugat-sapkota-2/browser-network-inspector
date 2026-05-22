@@ -184,7 +184,9 @@ const dom = {
   sourcesCount: null,
   logRows: null,
   emptyState: null,
-  chartLine: null,
+  chartLines: [],
+  heatmapGrid: null,
+  responseTimeline: null,
   navItems: [],
   sectionViews: []
 };
@@ -308,7 +310,9 @@ function bindDom() {
   dom.sourcesCount = document.getElementById("sourcesCount");
   dom.logRows = document.getElementById("logRows");
   dom.emptyState = document.getElementById("emptyState");
-  dom.chartLine = document.querySelector(".chart-line");
+  dom.chartLines = Array.from(document.querySelectorAll(".chart-line"));
+  dom.heatmapGrid = document.querySelector(".heatmap-grid");
+  dom.responseTimeline = document.querySelector(".waterfall");
   dom.navItems = Array.from(document.querySelectorAll(".sidebar-nav .nav-item[data-section]"));
   dom.sectionViews = Array.from(document.querySelectorAll(".section-view"));
 }
@@ -1232,10 +1236,11 @@ function updateSummaryUi() {
   dom.statAvgLatency.textContent = `${Math.round(Number(state.summary.avgLatency) || 0)} ms`;
   dom.statTotalData.textContent = formatBytes(state.summary.totalData);
   updateTrafficChart();
+  updateMiniPanels();
 }
 
 function updateTrafficChart() {
-  if (!dom.chartLine) {
+  if (!dom.chartLines.length) {
     return;
   }
 
@@ -1281,21 +1286,98 @@ function updateTrafficChart() {
   }
   pathData += ` L ${svgWidth} ${svgHeight}`;
 
-  const gradientId = `traffic-gradient-${Date.now()}`;
+  dom.chartLines.forEach((chartLine, index) => {
+    const gradientId = `traffic-gradient-${Date.now()}-${index}`;
+    const svgContent = `
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+        <defs>
+          <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color: rgba(91, 233, 255, 0.6); stop-opacity: 1" />
+            <stop offset="100%" style="stop-color: rgba(91, 233, 255, 0.1); stop-opacity: 1" />
+          </linearGradient>
+        </defs>
+        <path d="${pathData}" fill="url(#${gradientId})" stroke="rgba(91, 233, 255, 0.8)" stroke-width="2" />
+      </svg>
+    `;
+    chartLine.innerHTML = svgContent;
+  });
+}
 
-  const svgContent = `
-    <svg viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="none" style="width: 100%; height: 100%;">
-      <defs>
-        <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style="stop-color: rgba(91, 233, 255, 0.6); stop-opacity: 1" />
-          <stop offset="100%" style="stop-color: rgba(91, 233, 255, 0.1); stop-opacity: 1" />
-        </linearGradient>
-      </defs>
-      <path d="${pathData}" fill="url(#${gradientId})" stroke="rgba(91, 233, 255, 0.8)" stroke-width="2" />
-    </svg>
-  `;
+function updateMiniPanels() {
+  updateDomainHeatmap();
+  updateResponseTimeline();
+}
 
-  dom.chartLine.innerHTML = svgContent;
+function updateDomainHeatmap() {
+  if (!dom.heatmapGrid) {
+    return;
+  }
+
+  const domainCounts = new Map();
+  for (const entry of state.allLogs) {
+    const domain = String(entry.domain || getDomain(entry.url) || "").trim();
+    if (!domain) {
+      continue;
+    }
+    domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+  }
+
+  const rankedDomains = Array.from(domainCounts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 12);
+
+  const hasData = rankedDomains.length > 0;
+  const items = hasData ? rankedDomains : Array.from({ length: 12 }, () => ["", 1]);
+  const maxCount = hasData ? Math.max(...items.map(([, count]) => count), 1) : 1;
+
+  dom.heatmapGrid.classList.toggle("is-empty", !hasData);
+  dom.heatmapGrid.replaceChildren(
+    ...items.map(([domain, count]) => {
+      const bar = document.createElement("div");
+      bar.className = "heatmap-bar";
+      const ratio = count / maxCount;
+      const height = Math.round(12 + ratio * 50);
+      bar.style.height = `${height}px`;
+      bar.title = domain ? `${domain} • ${formatInteger(count)} req` : "No domain data";
+      return bar;
+    })
+  );
+}
+
+function updateResponseTimeline() {
+  if (!dom.responseTimeline) {
+    return;
+  }
+
+  const recentEntries = state.allLogs
+    .filter((entry) => Number.isFinite(Number(entry.timestamp)))
+    .sort((left, right) => Number(left.timestamp) - Number(right.timestamp))
+    .slice(-12);
+
+  const hasData = recentEntries.length > 0;
+  const latencies = hasData
+    ? recentEntries.map((entry) => {
+        const latency = getEntryLatencyMs(entry);
+        return Number.isFinite(latency) ? latency : 0;
+      })
+    : Array.from({ length: 12 }, () => 1);
+
+  const maxLatency = hasData ? Math.max(...latencies, 1) : 1;
+
+  dom.responseTimeline.classList.toggle("is-empty", !hasData);
+  dom.responseTimeline.replaceChildren(
+    ...latencies.map((latency, index) => {
+      const bar = document.createElement("div");
+      bar.className = "timeline-bar";
+      const ratio = latency / maxLatency;
+      const height = Math.round(12 + ratio * 50);
+      bar.style.height = `${height}px`;
+      bar.title = hasData
+        ? `Request ${recentEntries[index]?.method || ""} ${formatInsightLatency(latency)}`
+        : "No latency data";
+      return bar;
+    })
+  );
 }
 
 function syncAiModeUi() {
