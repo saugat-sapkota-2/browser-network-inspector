@@ -447,8 +447,6 @@ async function openMonitorWindow(tabId) {
 
   const monitorUrl = createMonitorUrlForTab(safeTabId);
 
-
-
   try {
     const created = await chrome.windows.create({
       url: monitorUrl,
