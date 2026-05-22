@@ -69,6 +69,8 @@ const state = {
   sourceFilter: "all",
   renderedRows: new Map(),
   autoReanalyzeTimer: null,
+  trafficHistory: Array(300).fill(0),
+  chartUpdateTimer: null,
   performance: {
     isOpen: false,
     isLoading: false,
@@ -182,6 +184,7 @@ const dom = {
   sourcesCount: null,
   logRows: null,
   emptyState: null,
+  chartLine: null,
   navItems: [],
   sectionViews: []
 };
@@ -305,6 +308,7 @@ function bindDom() {
   dom.sourcesCount = document.getElementById("sourcesCount");
   dom.logRows = document.getElementById("logRows");
   dom.emptyState = document.getElementById("emptyState");
+  dom.chartLine = document.querySelector(".chart-line");
   dom.navItems = Array.from(document.querySelectorAll(".sidebar-nav .nav-item[data-section]"));
   dom.sectionViews = Array.from(document.querySelectorAll(".section-view"));
 }
@@ -874,6 +878,13 @@ function clearLocalLogs() {
   state.allLogs = [];
   state.pendingEntries = [];
   state.renderedRows.clear();
+  state.summary = {
+    total: 0,
+    success: 0,
+    errors: 0,
+    avgLatency: 0,
+    totalData: 0
+  };
   cancelOngoingFullRender();
   state.analysis.result = null;
   state.analysis.stale = false;
@@ -894,6 +905,7 @@ function clearLocalLogs() {
   dom.logRows.textContent = "";
   updateEmptyState();
   updateSourceListUi();
+  updateSummaryUi();
   resetAnalysisPanel("No logs available. Capture traffic and run Analyze Network.");
 }
 
@@ -1219,6 +1231,71 @@ function updateSummaryUi() {
   dom.statErrors.textContent = formatInteger(state.summary.errors);
   dom.statAvgLatency.textContent = `${Math.round(Number(state.summary.avgLatency) || 0)} ms`;
   dom.statTotalData.textContent = formatBytes(state.summary.totalData);
+  updateTrafficChart();
+}
+
+function updateTrafficChart() {
+  if (!dom.chartLine) {
+    return;
+  }
+
+  const now = Date.now();
+  const fiveMinutesMs = 5 * 60 * 1000;
+  const bucketMs = 1000;
+  const bucketCount = Math.ceil(fiveMinutesMs / bucketMs);
+
+  const buckets = new Array(bucketCount).fill(0);
+  for (const log of state.allLogs) {
+    const timestamp = Number(log.timestamp);
+    if (!Number.isFinite(timestamp)) {
+      continue;
+    }
+
+    const age = now - timestamp;
+    if (age < 0 || age > fiveMinutesMs) {
+      continue;
+    }
+
+    const bucketIndex = Math.floor(age / bucketMs);
+    if (bucketIndex >= 0 && bucketIndex < bucketCount) {
+      buckets[bucketIndex] += 1;
+    }
+  }
+
+  const maxRequests = Math.max(...buckets, 1);
+  const heights = buckets.map((count) => (count / maxRequests) * 100);
+
+  const svgWidth = 280;
+  const svgHeight = 92;
+  const barWidth = svgWidth / bucketCount;
+
+  let pathData = `M 0 ${svgHeight}`;
+  for (let i = 0; i < heights.length; i++) {
+    const x = (i + 0.5) * barWidth;
+    const y = svgHeight - (heights[i] / 100) * svgHeight;
+    if (i === 0) {
+      pathData += ` L ${x} ${y}`;
+    } else {
+      pathData += ` L ${x} ${y}`;
+    }
+  }
+  pathData += ` L ${svgWidth} ${svgHeight}`;
+
+  const gradientId = `traffic-gradient-${Date.now()}`;
+
+  const svgContent = `
+    <svg viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+      <defs>
+        <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color: rgba(91, 233, 255, 0.6); stop-opacity: 1" />
+          <stop offset="100%" style="stop-color: rgba(91, 233, 255, 0.1); stop-opacity: 1" />
+        </linearGradient>
+      </defs>
+      <path d="${pathData}" fill="url(#${gradientId})" stroke="rgba(91, 233, 255, 0.8)" stroke-width="2" />
+    </svg>
+  `;
+
+  dom.chartLine.innerHTML = svgContent;
 }
 
 function syncAiModeUi() {
