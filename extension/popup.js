@@ -85,7 +85,10 @@ const state = {
     detailsToken: 0,
     items: [],
     searchQuery: "",
-    selectedKey: ""
+    selectedKey: "",
+    blockedSelectors: [],
+    hasScanned: false,
+    hasPickedElement: false
   },
   analysis: {
     aiMode: true,
@@ -107,6 +110,10 @@ const dom = {
   analyzeNetworkBtn: null,
   openPerformanceBtn: null,
   openElementsBtn: null,
+  openSettingsBtn: null,
+  settingsMenuBtn: null,
+  settingsMenu: null,
+  blockedElementsMenuItem: null,
   aiModeToggle: null,
   aiModeLabel: null,
   performanceBackdrop: null,
@@ -134,9 +141,16 @@ const dom = {
   closeElementsBtn: null,
   scanElementsBtn: null,
   pickElementBtn: null,
+  blockElementBtn: null,
   elementSelectorInput: null,
   applyElementSelectorBtn: null,
   elementSelectorList: null,
+  blockedElementsCount: null,
+  blockedElementsMeta: null,
+  refreshBlockedElementsBtn: null,
+  blockedElementsList: null,
+  clearBlockedElementsBtn: null,
+  openElementsInspectorBtn: null,
   elementsCount: null,
   elementsSearchInput: null,
   elementDetailsTitle: null,
@@ -188,6 +202,7 @@ const dom = {
   heatmapGrid: null,
   responseTimeline: null,
   navItems: [],
+  modalItems: [],
   sectionViews: []
 };
 
@@ -234,6 +249,10 @@ function bindDom() {
   dom.webDarkerBtn = document.getElementById("webDarkerBtn");
   dom.openPerformanceBtn = document.getElementById("openPerformanceBtn");
   dom.openElementsBtn = document.getElementById("openElementsBtn");
+  dom.openSettingsBtn = document.getElementById("openSettingsBtn");
+  dom.settingsMenuBtn = document.getElementById("settingsMenuBtn");
+  dom.settingsMenu = document.getElementById("settingsMenu");
+  dom.blockedElementsMenuItem = document.getElementById("blockedElementsMenuItem");
   dom.aiModeToggle = document.getElementById("aiModeToggle");
   dom.aiModeLabel = document.getElementById("aiModeLabel");
   dom.performanceBackdrop = document.getElementById("performanceBackdrop");
@@ -261,9 +280,16 @@ function bindDom() {
   dom.closeElementsBtn = document.getElementById("closeElementsBtn");
   dom.scanElementsBtn = document.getElementById("scanElementsBtn");
   dom.pickElementBtn = document.getElementById("pickElementBtn");
+  dom.blockElementBtn = document.getElementById("blockElementBtn");
   dom.elementSelectorInput = document.getElementById("elementSelectorInput");
   dom.applyElementSelectorBtn = document.getElementById("applyElementSelectorBtn");
   dom.elementSelectorList = document.getElementById("elementSelectorList");
+  dom.blockedElementsCount = document.getElementById("blockedElementsCount");
+  dom.blockedElementsMeta = document.getElementById("blockedElementsMeta");
+  dom.refreshBlockedElementsBtn = document.getElementById("refreshBlockedElementsBtn");
+  dom.blockedElementsList = document.getElementById("blockedElementsList");
+  dom.clearBlockedElementsBtn = document.getElementById("clearBlockedElementsBtn");
+  dom.openElementsInspectorBtn = document.getElementById("openElementsInspectorBtn");
   dom.elementsCount = document.getElementById("elementsCount");
   dom.elementsSearchInput = document.getElementById("elementsSearchInput");
   dom.elementDetailsTitle = document.getElementById("elementDetailsTitle");
@@ -316,6 +342,7 @@ function bindDom() {
   dom.heatmapGrid = document.querySelector(".heatmap-grid");
   dom.responseTimeline = document.querySelector(".waterfall");
   dom.navItems = Array.from(document.querySelectorAll(".sidebar-nav .nav-item[data-section]"));
+  dom.modalItems = Array.from(document.querySelectorAll(".sidebar-nav .nav-item[data-action]"));
   dom.sectionViews = Array.from(document.querySelectorAll(".section-view"));
 }
 
@@ -335,6 +362,57 @@ function initNavigation() {
     dom.navItems.find((item) => item.classList.contains("is-active"))?.dataset.section ||
     "dashboard";
   setActiveSection(defaultSection);
+
+  dom.modalItems.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+
+      if (item.dataset.action === "elements") {
+        openElementsPanel();
+      }
+    });
+  });
+
+  if (dom.settingsMenuBtn && dom.settingsMenu) {
+    dom.settingsMenuBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = !dom.settingsMenu.classList.contains("hidden");
+      setSettingsMenuOpen(!isOpen);
+    });
+  }
+
+  if (dom.blockedElementsMenuItem) {
+    dom.blockedElementsMenuItem.addEventListener("click", () => {
+      setSettingsMenuOpen(false);
+      setActiveSection("settings");
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!dom.settingsMenu || !dom.settingsMenuBtn) {
+      return;
+    }
+
+    if (dom.settingsMenu.classList.contains("hidden")) {
+      return;
+    }
+
+    const target = event.target;
+    if (target instanceof Node && (dom.settingsMenu.contains(target) || dom.settingsMenuBtn.contains(target))) {
+      return;
+    }
+
+    setSettingsMenuOpen(false);
+  });
+}
+
+function setSettingsMenuOpen(isOpen) {
+  if (!dom.settingsMenu || !dom.settingsMenuBtn) {
+    return;
+  }
+
+  dom.settingsMenu.classList.toggle("hidden", !isOpen);
+  dom.settingsMenuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
 }
 
 function setActiveSection(section) {
@@ -425,8 +503,13 @@ function bindEvents() {
 
   dom.openElementsBtn.addEventListener("click", () => {
     openElementsPanel();
-    void scanElementsSnapshot();
   });
+
+  if (dom.openSettingsBtn) {
+    dom.openSettingsBtn.addEventListener("click", () => {
+      setActiveSection("settings");
+    });
+  }
 
   if (dom.reAnalyzeBtn) {
     dom.reAnalyzeBtn.addEventListener("click", () => {
@@ -494,6 +577,10 @@ function bindEvents() {
     void scanElementsSnapshot();
   });
 
+  dom.blockElementBtn.addEventListener("click", () => {
+    void toggleBlockedSelectedElement();
+  });
+
   dom.pickElementBtn.addEventListener("click", () => {
     void pickElementFromPage();
   });
@@ -532,6 +619,35 @@ function bindEvents() {
 
     selectElementByKey(button.dataset.key);
   });
+
+  if (dom.blockedElementsList) {
+    dom.blockedElementsList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-selector]");
+      if (!button) {
+        return;
+      }
+
+      void removeBlockedSelector(button.dataset.selector || "");
+    });
+  }
+
+  if (dom.refreshBlockedElementsBtn) {
+    dom.refreshBlockedElementsBtn.addEventListener("click", () => {
+      void refreshBlockedSelectors();
+    });
+  }
+
+  if (dom.clearBlockedElementsBtn) {
+    dom.clearBlockedElementsBtn.addEventListener("click", () => {
+      void clearBlockedSelectors();
+    });
+  }
+
+  if (dom.openElementsInspectorBtn) {
+    dom.openElementsInspectorBtn.addEventListener("click", () => {
+      openElementsPanel();
+    });
+  }
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") {
@@ -684,6 +800,129 @@ function persistWebDarkerTabs() {
   });
 }
 
+function normalizeBlockedSelectors(selectors) {
+  const normalized = [];
+  const seen = new Set();
+
+  for (const rawSelector of Array.isArray(selectors) ? selectors : []) {
+    const selector = String(rawSelector || "").trim();
+    if (!selector || seen.has(selector)) {
+      continue;
+    }
+
+    seen.add(selector);
+    normalized.push(selector);
+  }
+
+  return normalized;
+}
+
+function syncBlockedSelectorsState(selectors) {
+  state.elements.blockedSelectors = normalizeBlockedSelectors(selectors);
+  renderBlockedElementsList();
+  updateBlockElementButton();
+  renderElementSelectorList();
+}
+
+function isSelectorBlocked(selector) {
+  const normalizedSelector = String(selector || "").trim();
+  if (!normalizedSelector) {
+    return false;
+  }
+
+  return state.elements.blockedSelectors.includes(normalizedSelector);
+}
+
+function getSelectedElementItem() {
+  return state.elements.items.find((item) => item && item.key === state.elements.selectedKey) || null;
+}
+
+function updateBlockElementButton(item = getSelectedElementItem()) {
+  if (!dom.blockElementBtn) {
+    return;
+  }
+
+  if (!item || !item.selector) {
+    dom.blockElementBtn.disabled = true;
+    dom.blockElementBtn.textContent = "Block Selected";
+    dom.blockElementBtn.classList.remove("is-danger");
+    dom.blockElementBtn.title = "Scan first, then pick an element to block it.";
+    dom.blockElementBtn.classList.add("is-muted");
+    return;
+  }
+
+  const blocked = isSelectorBlocked(item.selector);
+  dom.blockElementBtn.disabled = false;
+  dom.blockElementBtn.textContent = blocked ? "Unblock Selected" : "Block Selected";
+  dom.blockElementBtn.classList.toggle("is-danger", blocked);
+  dom.blockElementBtn.classList.remove("is-muted");
+  dom.blockElementBtn.title = blocked ? "Remove this selector from blocked items." : "Block the selected element.";
+}
+
+function renderBlockedElementsList() {
+  const selectors = state.elements.blockedSelectors;
+  const countText = formatInteger(selectors.length);
+
+  if (dom.blockedElementsCount) {
+    dom.blockedElementsCount.textContent = countText;
+  }
+
+  if (dom.blockedElementsMeta) {
+    dom.blockedElementsMeta.textContent = selectors.length > 0
+      ? `${countText} blocked selector${selectors.length === 1 ? "" : "s"} applied to the tracked tab.`
+      : "Scan first, then pick an element to block it.";
+  }
+
+  if (!dom.blockedElementsList) {
+    return;
+  }
+
+  dom.blockedElementsList.textContent = "";
+
+  if (selectors.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "blocked-elements-empty";
+    empty.textContent = "Scan first, then pick an element to block it.";
+    dom.blockedElementsList.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const selector of selectors) {
+    const item = document.createElement("article");
+    item.className = "blocked-element-item";
+
+    const copy = document.createElement("div");
+    copy.className = "blocked-element-copy";
+
+    const selectorLabel = document.createElement("p");
+    selectorLabel.className = "blocked-element-selector";
+    selectorLabel.textContent = selector;
+
+    const selectorMeta = document.createElement("p");
+    selectorMeta.className = "blocked-element-meta";
+    selectorMeta.textContent = "Hidden on the tracked tab until you remove it.";
+
+    copy.append(selectorLabel, selectorMeta);
+
+    const actions = document.createElement("div");
+    actions.className = "blocked-element-actions";
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "ghost-btn blocked-element-remove";
+    removeButton.dataset.selector = selector;
+    removeButton.textContent = "Remove";
+
+    actions.appendChild(removeButton);
+    item.append(copy, actions);
+    fragment.appendChild(item);
+  }
+
+  dom.blockedElementsList.appendChild(fragment);
+}
+
 async function requestInitialState() {
   const response = await sendMessage({ type: "get-state" });
   if (!response) {
@@ -712,6 +951,7 @@ async function requestInitialState() {
   syncAutoRefreshUi();
   syncFilterUi();
   syncSourceFilterUi();
+  syncBlockedSelectorsState(Array.isArray(response.blockedSelectors) ? response.blockedSelectors : []);
   closeAnalysisPanel();
   closePerformancePanel();
   closeElementsPanel();
@@ -1525,11 +1765,13 @@ function openElementsPanel() {
   }
 
   state.elements.isOpen = true;
+  setSettingsMenuOpen(false);
   dom.elementsPanel.classList.remove("hidden");
   dom.elementsBackdrop.classList.remove("hidden");
   dom.elementsPanel.setAttribute("aria-hidden", "false");
   document.body.classList.add("elements-open");
   dom.closeElementsBtn.focus();
+  syncElementActionVisibility();
 }
 
 function closeElementsPanel() {
@@ -1544,12 +1786,31 @@ function resetElementsPanel(message) {
   state.elements.items = [];
   state.elements.searchQuery = "";
   state.elements.selectedKey = "";
+  state.elements.hasScanned = false;
+  state.elements.hasPickedElement = false;
   state.elements.detailsToken += 1;
   dom.elementSelectorInput.value = "";
   dom.elementsSearchInput.value = "";
   dom.elementsMeta.textContent = message;
+  syncElementActionVisibility();
   renderElementSelectorList();
   renderSelectedElementDetails(null);
+  updateBlockElementButton(null);
+}
+
+function syncElementActionVisibility() {
+  if (dom.pickElementBtn) {
+    dom.pickElementBtn.classList.toggle("hidden", !state.elements.hasScanned);
+  }
+
+  if (dom.blockElementBtn) {
+    dom.blockElementBtn.classList.remove("hidden");
+    dom.blockElementBtn.disabled = !state.elements.hasPickedElement;
+    dom.blockElementBtn.classList.toggle("is-muted", !state.elements.hasPickedElement);
+    dom.blockElementBtn.title = state.elements.hasPickedElement
+      ? "Block the selected element."
+      : "Scan first, then pick an element to block it.";
+  }
 }
 
 function setElementsLoading(isLoading, message) {
@@ -1561,6 +1822,8 @@ function setElementsLoading(isLoading, message) {
   dom.applyElementSelectorBtn.disabled = state.elements.isLoading;
   dom.applyElementSelectorBtn.classList.toggle("is-running", state.elements.isLoading);
   dom.elementSelectorInput.disabled = state.elements.isLoading;
+  dom.pickElementBtn.disabled = state.elements.isLoading;
+  dom.blockElementBtn.disabled = state.elements.isLoading;
 
   if (typeof message === "string" && message.length > 0) {
     dom.elementsMeta.textContent = message;
@@ -1662,6 +1925,71 @@ async function pickElementFromPage() {
 
   renderElementSelectorSnapshot(snapshot);
   setElementsLoading(false, dom.elementsMeta.textContent);
+}
+
+async function toggleBlockedSelectedElement() {
+  const item = getSelectedElementItem();
+  if (!item || !item.selector) {
+    dom.elementsMeta.textContent = "Select an element before blocking it.";
+    return;
+  }
+
+  const selector = String(item.selector || "").trim();
+  const isBlocked = isSelectorBlocked(selector);
+  const messageType = isBlocked ? "remove-blocked-element" : "add-blocked-element";
+  const response = await sendMessage({ type: messageType, selector });
+
+  if (!response || !response.ok) {
+    dom.elementsMeta.textContent = isBlocked
+      ? "Unable to unblock the selected element right now."
+      : "Unable to block the selected element right now.";
+    return;
+  }
+
+  syncBlockedSelectorsState(Array.isArray(response.blockedSelectors) ? response.blockedSelectors : []);
+  dom.elementsMeta.textContent = isBlocked
+    ? `Removed ${selector} from blocked elements.`
+    : `Blocked ${selector} on the tracked tab.`;
+
+  if (!isBlocked) {
+    setActiveSection("settings");
+  }
+}
+
+async function removeBlockedSelector(selector) {
+  const normalizedSelector = String(selector || "").trim();
+  if (!normalizedSelector) {
+    return;
+  }
+
+  const response = await sendMessage({ type: "remove-blocked-element", selector: normalizedSelector });
+  if (!response || !response.ok) {
+    dom.blockedElementsMeta.textContent = "Unable to remove the blocked selector right now.";
+    return;
+  }
+
+  syncBlockedSelectorsState(Array.isArray(response.blockedSelectors) ? response.blockedSelectors : []);
+}
+
+async function refreshBlockedSelectors() {
+  const response = await sendMessage({ type: "get-state" });
+  if (!response) {
+    dom.blockedElementsMeta.textContent = "Unable to refresh blocked selectors right now.";
+    return;
+  }
+
+  syncBlockedSelectorsState(Array.isArray(response.blockedSelectors) ? response.blockedSelectors : []);
+}
+
+async function clearBlockedSelectors() {
+  const response = await sendMessage({ type: "clear-blocked-elements" });
+  if (!response || !response.ok) {
+    dom.blockedElementsMeta.textContent = "Unable to clear blocked selectors right now.";
+    return;
+  }
+
+  syncBlockedSelectorsState(Array.isArray(response.blockedSelectors) ? response.blockedSelectors : []);
+  dom.blockedElementsMeta.textContent = "All blocked selectors were cleared.";
 }
 
 async function captureElementsSnapshotFromTrackedTab() {
@@ -1768,18 +2096,16 @@ function renderElementsSnapshot(snapshot) {
 
   state.elements.items = elements;
   state.elements.searchQuery = "";
+  state.elements.hasScanned = true;
+  state.elements.hasPickedElement = false;
   dom.elementsSearchInput.value = "";
 
-  const filteredItems = getFilteredElementItems();
-  if (filteredItems.length > 0) {
-    state.elements.selectedKey = filteredItems[0].key;
-  } else {
-    state.elements.selectedKey = "";
-  }
+  state.elements.selectedKey = "";
 
   dom.elementsMeta.textContent = `Captured ${formatInteger(elements.length)} elements from ${host} at ${capturedAtText}.`;
+  syncElementActionVisibility();
   renderElementSelectorList();
-  renderSelectedElementDetails(filteredItems[0] || null);
+  renderSelectedElementDetails(null);
 }
 
 function renderElementSelectorSnapshot(snapshot) {
@@ -1804,6 +2130,8 @@ function renderElementSelectorSnapshot(snapshot) {
   upsertElementItem(item);
   state.elements.selectedKey = item.key;
   state.elements.searchQuery = "";
+  state.elements.hasScanned = true;
+  state.elements.hasPickedElement = true;
   dom.elementSelectorInput.value = selector;
   dom.elementsSearchInput.value = "";
 
@@ -1812,6 +2140,7 @@ function renderElementSelectorSnapshot(snapshot) {
   const capturedAtText = formatTime(snapshot.capturedAt || Date.now());
   dom.elementsMeta.textContent = `Selector ${selector} captured from ${host} at ${capturedAtText}.`;
 
+  syncElementActionVisibility();
   renderElementSelectorList();
   renderSelectedElementDetails(item);
   void previewElementBySelectorInTrackedTab(item.selector);
@@ -1870,11 +2199,13 @@ function renderElementSelectorList() {
       : "No selectors match your filter.";
     dom.elementSelectorList.appendChild(empty);
     renderSelectedElementDetails(null);
+    updateBlockElementButton(null);
+    syncElementActionVisibility();
     return;
   }
 
-  if (!filteredItems.some((item) => item.key === state.elements.selectedKey)) {
-    state.elements.selectedKey = filteredItems[0].key;
+  if (state.elements.selectedKey && !filteredItems.some((item) => item.key === state.elements.selectedKey)) {
+    state.elements.selectedKey = "";
   }
 
   const fragment = document.createDocumentFragment();
@@ -1899,7 +2230,8 @@ function renderElementSelectorList() {
     statusRow.className = "element-selector-status";
     statusRow.append(
       createElementSelectorStatusBadge("JS", item.hasJs),
-      createElementSelectorStatusBadge("ANIM", item.hasAnimations)
+      createElementSelectorStatusBadge("ANIM", item.hasAnimations),
+      createElementSelectorStatusBadge("BLK", isSelectorBlocked(item.selector))
     );
 
     button.append(selector, meta, statusRow);
@@ -1908,8 +2240,10 @@ function renderElementSelectorList() {
 
   dom.elementSelectorList.appendChild(fragment);
 
-  const selectedItem = filteredItems.find((item) => item.key === state.elements.selectedKey) || filteredItems[0];
+  const selectedItem = filteredItems.find((item) => item.key === state.elements.selectedKey) || null;
   renderSelectedElementDetails(selectedItem);
+  updateBlockElementButton(selectedItem);
+  syncElementActionVisibility();
 }
 
 function selectElementByKey(key) {
@@ -1918,6 +2252,7 @@ function selectElementByKey(key) {
   }
 
   state.elements.selectedKey = key;
+  state.elements.hasPickedElement = true;
   renderElementSelectorList();
 
   const selectedItem = state.elements.items.find((item) => item && item.key === key);
@@ -1925,6 +2260,8 @@ function selectElementByKey(key) {
     dom.elementSelectorInput.value = selectedItem.selector;
     void previewElementBySelectorInTrackedTab(selectedItem.selector);
   }
+
+  syncElementActionVisibility();
 }
 
 async function previewElementBySelectorInTrackedTab(selector) {
@@ -1961,6 +2298,7 @@ function renderSelectedElementDetails(item) {
     dom.elementJsView.textContent = "Select an element selector to inspect JavaScript handlers and hooks.";
     dom.elementAnimationView.textContent = "Select an element selector to inspect CSS animations and transitions.";
     applyElementInsightBadges(null);
+    updateBlockElementButton(null);
     return;
   }
 
@@ -1978,6 +2316,8 @@ function renderSelectedElementDetails(item) {
   if (!item.diagnosticsLoaded && !item.diagnosticsPending) {
     void ensureElementDiagnosticsForSelected(item);
   }
+
+  updateBlockElementButton(item);
 }
 
 function normalizeElementInspectorItem(rawItem, fallbackPrefix = "element") {

@@ -189,6 +189,23 @@ body.elements-open {
   box-shadow: 0 0 0 1px rgba(162, 133, 255, 0.15) inset;
 }
 
+.nav-item.is-element {
+  border-color: rgba(95, 242, 182, 0.42);
+  background: linear-gradient(120deg, rgba(95, 242, 182, 0.16), rgba(91, 233, 255, 0.1));
+  box-shadow: 0 0 0 1px rgba(95, 242, 182, 0.12) inset;
+}
+
+.nav-item.is-element .nav-badge {
+  border-color: rgba(95, 242, 182, 0.6);
+  color: #e7fff4;
+  background: rgba(95, 242, 182, 0.15);
+}
+
+.nav-item.is-element.is-active {
+  border-color: rgba(95, 242, 182, 0.75);
+  background: linear-gradient(120deg, rgba(95, 242, 182, 0.24), rgba(91, 233, 255, 0.16));
+}
+
 .nav-badge {
   margin-left: auto;
   border-radius: 999px;
@@ -405,6 +422,11 @@ body[data-section="ai"] .command-panel {
   gap: 10px;
 }
 
+.header-action-group {
+  position: relative;
+  display: inline-flex;
+}
+
 .icon-btn {
   width: 38px;
   height: 38px;
@@ -427,6 +449,41 @@ body[data-section="ai"] .command-panel {
   transform: translateY(-1px);
   border-color: rgba(91, 233, 255, 0.5);
   background: rgba(16, 28, 44, 0.9);
+}
+
+.header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(106, 163, 255, 0.28);
+  background: rgba(10, 16, 26, 0.96);
+  box-shadow: var(--shadow-md);
+  z-index: 40;
+}
+
+.header-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.header-menu-item:hover {
+  background: rgba(91, 233, 255, 0.12);
+  color: #e8fbff;
+}
+
+.header-menu-item:focus-visible {
+  outline: none;
+  background: rgba(91, 233, 255, 0.16);
 }
 
 .profile-chip {
@@ -532,6 +589,25 @@ body[data-section="ai"] .command-panel {
 .primary-btn:hover {
   transform: translateY(-1px);
   border-color: rgba(95, 242, 182, 0.9);
+}
+
+.primary-btn.is-danger {
+  border-color: rgba(255, 122, 143, 0.8);
+  background: linear-gradient(130deg, rgba(255, 122, 143, 0.28), rgba(255, 190, 122, 0.16));
+  color: #fff0f3;
+}
+
+.primary-btn.is-danger:hover {
+  border-color: rgba(255, 122, 143, 1);
+}
+
+.primary-btn.is-muted {
+  opacity: 0.65;
+  filter: saturate(0.7);
+}
+
+.primary-btn.is-muted:hover {
+  transform: none;
 }
 
 .ghost-btn {
@@ -1123,6 +1199,10 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.settings-panel {
+  gap: 16px;
 }
 
 .analysis-backdrop,
@@ -1773,6 +1853,100 @@ tbody tr:hover {
   color: #87a9c2;
   border-color: rgba(111, 173, 232, 0.24);
   background: rgba(12, 25, 38, 0.7);
+}
+
+.element-selector-status-badge.is-blocked.is-active {
+  color: #fff3dc;
+  border-color: rgba(255, 190, 122, 0.65);
+  background: linear-gradient(120deg, rgba(255, 190, 122, 0.28), rgba(255, 190, 122, 0.1));
+}
+
+.blocked-elements-shell {
+  display: grid;
+  gap: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(106, 163, 255, 0.2);
+  background: rgba(13, 22, 35, 0.72);
+  padding: 14px;
+}
+
+.blocked-elements-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.blocked-elements-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.blocked-elements-meta {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.blocked-elements-list {
+  display: grid;
+  gap: 10px;
+  max-height: 340px;
+  overflow: auto;
+}
+
+.blocked-element-item {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(106, 163, 255, 0.18);
+  background: rgba(9, 16, 26, 0.88);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.blocked-element-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.blocked-element-selector {
+  margin: 0;
+  color: #d7ecff;
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.blocked-element-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.blocked-element-actions {
+  flex: 0 0 auto;
+}
+
+.blocked-element-remove {
+  padding-inline: 12px;
+}
+
+.blocked-elements-empty {
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(106, 163, 255, 0.22);
+  background: rgba(11, 18, 30, 0.72);
+  color: var(--muted);
+  padding: 14px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.blocked-elements-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .elements-detail-shell {

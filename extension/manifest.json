@@ -1,9 +1,9 @@
 
 {
   "manifest_version": 3,
-  "name": "Network Monitor Lite 1.0.2 ",
+  "name": "Network Monitor Lite",
   "description": "Lightweight real-time network monitor for the active tab.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "permissions": [
     "storage",
     "tabs",

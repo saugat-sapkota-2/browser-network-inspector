@@ -1,6 +1,7 @@
 // Network Monitor Lite v1.0.2- A lightweight network monitoring extension for developers. 
 
 const STORAGE_KEY = "nml_state_v1";
+const BLOCKED_ELEMENTS_STORAGE_KEY = "nml_blocked_elements_v1";
 const SLOW_THRESHOLD_MS = 500;
 const MONITOR_WINDOW_PATH = "popup.html";
 const MONITOR_WINDOW_WIDTH = 1180;
@@ -22,6 +23,8 @@ const state = {
   settings: { ...DEFAULT_SETTINGS },
   viewerWindowByTrackedTab: new Map(),
   trackedTabByViewerWindow: new Map(),
+  blockedSelectorsByTab: new Map(),
+  blockedCssByTab: new Map(),
   pendingRequests: new Map(),
   requestSizes: new Map(),
   responseSizes: new Map(),
@@ -113,6 +116,132 @@ function sanitizeSettings(maybeSettings) {
   }
 
   return safe;
+}
+
+function normalizeBlockedSelector(selector) {
+  return String(selector || "").trim();
+}
+
+function sanitizeBlockedSelectors(maybeSelectorsByTab) {
+  const blockedSelectorsByTab = new Map();
+
+  if (!maybeSelectorsByTab || typeof maybeSelectorsByTab !== "object") {
+    return blockedSelectorsByTab;
+  }
+
+  for (const [tabKey, rawSelectors] of Object.entries(maybeSelectorsByTab)) {
+    const tabId = parseTabId(tabKey);
+    if (tabId < 0 || !Array.isArray(rawSelectors)) {
+      continue;
+    }
+
+    const selectors = [];
+    for (const rawSelector of rawSelectors) {
+      const selector = normalizeBlockedSelector(rawSelector);
+      if (!selector || selectors.includes(selector)) {
+        continue;
+      }
+
+      selectors.push(selector);
+    }
+
+    if (selectors.length > 0) {
+      blockedSelectorsByTab.set(tabId, selectors);
+    }
+  }
+
+  return blockedSelectorsByTab;
+}
+
+function serializeBlockedSelectors() {
+  const serialized = {};
+
+  for (const [tabId, selectors] of state.blockedSelectorsByTab.entries()) {
+    serialized[String(tabId)] = Array.isArray(selectors) ? selectors : [];
+  }
+
+  return serialized;
+}
+
+function getBlockedSelectorsForTab(tabId) {
+  const safeTabId = parseTabId(tabId);
+  if (safeTabId < 0) {
+    return [];
+  }
+
+  return state.blockedSelectorsByTab.get(safeTabId) || [];
+}
+
+function setBlockedSelectorsForTab(tabId, selectors) {
+  const safeTabId = parseTabId(tabId);
+  if (safeTabId < 0) {
+    return [];
+  }
+
+  const normalizedSelectors = [];
+
+  for (const rawSelector of Array.isArray(selectors) ? selectors : []) {
+    const selector = normalizeBlockedSelector(rawSelector);
+    if (!selector || normalizedSelectors.includes(selector)) {
+      continue;
+    }
+
+    normalizedSelectors.push(selector);
+  }
+
+  if (normalizedSelectors.length === 0) {
+    state.blockedSelectorsByTab.delete(safeTabId);
+  } else {
+    state.blockedSelectorsByTab.set(safeTabId, normalizedSelectors);
+  }
+
+  return normalizedSelectors;
+}
+
+function createBlockedSelectorsCss(selectors) {
+  return (Array.isArray(selectors) ? selectors : [])
+    .map((selector) => {
+      return `${selector} { display: none !important; visibility: hidden !important; pointer-events: none !important; }`;
+    })
+    .join("\n");
+}
+
+async function syncBlockedSelectorsForTab(tabId) {
+  const safeTabId = parseTabId(tabId);
+  if (safeTabId < 0 || !chrome.scripting || typeof chrome.scripting.insertCSS !== "function") {
+    return { ok: false, reason: "no-tab" };
+  }
+
+  const selectors = getBlockedSelectorsForTab(safeTabId);
+  const nextCss = createBlockedSelectorsCss(selectors);
+  const previousCss = state.blockedCssByTab.get(safeTabId) || "";
+
+  try {
+    if (previousCss && previousCss !== nextCss) {
+      await chrome.scripting.removeCSS({
+        target: { tabId: safeTabId, allFrames: true },
+        css: previousCss
+      });
+    }
+
+    if (nextCss) {
+      await chrome.scripting.insertCSS({
+        target: { tabId: safeTabId, allFrames: true },
+        css: nextCss
+      });
+      state.blockedCssByTab.set(safeTabId, nextCss);
+    } else {
+      state.blockedCssByTab.delete(safeTabId);
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error && error.message ? error.message : String(error)
+    };
+  }
+
+  persistStateSoon();
+  return { ok: true, blockedSelectors: selectors };
 }
 
 function normalizeResourceType(type) {
@@ -356,6 +485,7 @@ function getStateSnapshot(targetTabId) {
     logs: session ? session.logs : [],
     summary: session ? session.summary : createEmptySummary(),
     settings: state.settings,
+    blockedSelectors: getBlockedSelectorsForTab(safeTabId),
     slowThresholdMs: SLOW_THRESHOLD_MS
   };
 }
@@ -508,6 +638,10 @@ function persistStateSoon() {
       [STORAGE_KEY]: {
         sessions: serializeSessions(),
         settings: state.settings,
+        savedAt: Date.now()
+      },
+      [BLOCKED_ELEMENTS_STORAGE_KEY]: {
+        selectors: serializeBlockedSelectors(),
         savedAt: Date.now()
       }
     });
@@ -725,11 +859,18 @@ function onErrorOccurred(details) {
 
 function onTabUpdated(tabId, changeInfo) {
   if (!state.sessions.has(tabId)) {
+    if (changeInfo.status === "complete" && state.blockedSelectorsByTab.has(tabId)) {
+      void syncBlockedSelectorsForTab(tabId);
+    }
     return;
   }
 
   if (changeInfo.status === "loading") {
     clearLogsForTab(tabId, "tracked-tab-refresh", { resetPending: true });
+  }
+
+  if (changeInfo.status === "complete" && state.blockedSelectorsByTab.has(tabId)) {
+    void syncBlockedSelectorsForTab(tabId);
   }
 }
 
@@ -818,9 +959,24 @@ async function rebuildViewerWindowMappings() {
   }
 }
 
+async function reapplyBlockedSelectorsForTrackedTabs() {
+  const trackedTabIds = Array.from(state.blockedSelectorsByTab.keys());
+
+  for (const tabId of trackedTabIds) {
+    try {
+      await chrome.tabs.get(tabId);
+      await syncBlockedSelectorsForTab(tabId);
+    } catch {
+      state.blockedSelectorsByTab.delete(tabId);
+      state.blockedCssByTab.delete(tabId);
+    }
+  }
+}
+
 const initPromise = (async () => {
   const stored = await chrome.storage.local.get(STORAGE_KEY);
   const savedState = stored[STORAGE_KEY];
+  const blockedState = stored[BLOCKED_ELEMENTS_STORAGE_KEY];
 
   if (savedState && typeof savedState === "object") {
     state.settings = sanitizeSettings(savedState.settings);
@@ -834,9 +990,16 @@ const initPromise = (async () => {
     }
   }
 
-  await rebuildViewerWindowMappings();
-})();
+  if (blockedState && typeof blockedState === "object") {
+    const rawSelectors = blockedState.selectors && typeof blockedState.selectors === "object"
+      ? blockedState.selectors
+      : blockedState;
+    state.blockedSelectorsByTab = sanitizeBlockedSelectors(rawSelectors);
+  }
 
+  await rebuildViewerWindowMappings();
+  await reapplyBlockedSelectorsForTrackedTabs();
+})();
 initPromise
   .then(() => {
     // Maintenance runs after critical init so monitor window opens quickly.
@@ -905,6 +1068,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
 
+    if (message.type === "add-blocked-element") {
+      if (targetTabId < 0) {
+        sendResponse({ ok: false, reason: "no-tracked-tab" });
+        return;
+      }
+
+      const selector = normalizeBlockedSelector(message.selector);
+      if (!selector) {
+        sendResponse({ ok: false, reason: "empty-selector" });
+        return;
+      }
+
+      const currentSelectors = getBlockedSelectorsForTab(targetTabId);
+      if (!currentSelectors.includes(selector)) {
+        currentSelectors.push(selector);
+      }
+
+      setBlockedSelectorsForTab(targetTabId, currentSelectors);
+      const result = await syncBlockedSelectorsForTab(targetTabId);
+      sendResponse({ ok: result.ok, blockedSelectors: getBlockedSelectorsForTab(targetTabId), reason: result.reason || null });
+      return;
+    }
+
+    if (message.type === "remove-blocked-element") {
+      if (targetTabId < 0) {
+        sendResponse({ ok: false, reason: "no-tracked-tab" });
+        return;
+      }
+
+      const selector = normalizeBlockedSelector(message.selector);
+      const nextSelectors = getBlockedSelectorsForTab(targetTabId).filter((item) => item !== selector);
+      setBlockedSelectorsForTab(targetTabId, nextSelectors);
+      const result = await syncBlockedSelectorsForTab(targetTabId);
+      sendResponse({ ok: result.ok, blockedSelectors: getBlockedSelectorsForTab(targetTabId), reason: result.reason || null });
+      return;
+    }
+
+    if (message.type === "clear-blocked-elements") {
+      if (targetTabId < 0) {
+        sendResponse({ ok: false, reason: "no-tracked-tab" });
+        return;
+      }
+
+      setBlockedSelectorsForTab(targetTabId, []);
+      const result = await syncBlockedSelectorsForTab(targetTabId);
+      sendResponse({ ok: result.ok, blockedSelectors: getBlockedSelectorsForTab(targetTabId), reason: result.reason || null });
+      return;
+    }
+
     sendResponse(null);
   })().catch(() => {
     sendResponse({ ok: false, reason: "internal-error" });
@@ -946,11 +1158,18 @@ chrome.tabs.onUpdated.addListener(onTabUpdated);
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (!state.sessions.has(tabId)) {
+    if (state.blockedSelectorsByTab.has(tabId)) {
+      state.blockedSelectorsByTab.delete(tabId);
+      state.blockedCssByTab.delete(tabId);
+      persistStateSoon();
+    }
     return;
   }
 
   clearLogsForTab(tabId, "tracked-tab-closed", { resetPending: true });
   state.sessions.delete(tabId);
+  state.blockedSelectorsByTab.delete(tabId);
+  state.blockedCssByTab.delete(tabId);
   persistStateSoon();
 
   const viewerWindowId = state.viewerWindowByTrackedTab.get(tabId);

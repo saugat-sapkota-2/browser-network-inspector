@@ -39,6 +39,13 @@
           <span>Capture Source</span>
           <span class="nav-badge">IMP</span>
         </a>
+        <a class="nav-item is-element" href="#" data-action="elements">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5h16v14H4V5Zm2 2v10h12V7H6Zm2 2h8v2H8V9Zm0 4h6v2H8v-2Z" />
+            </svg></span>
+          <span>Elements</span>
+          <span class="nav-badge">NEW</span>
+        </a>
         <a class="nav-item" href="#" data-section="requests">
           <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 4h14v4H5V4Zm0 6h14v10H5V10Zm4 2v6h6v-6H9Z" />
@@ -101,6 +108,18 @@
         </label>
 
         <div class="header-actions">
+          <div class="header-action-group">
+            <button id="settingsMenuBtn" class="icon-btn" type="button" aria-label="Settings"
+              aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19.14 12.94a7.72 7.72 0 0 0 .05-.94 7.72 7.72 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.26 7.26 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 14.9 1h-3.8a.5.5 0 0 0-.49.41l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L3.71 7.47a.5.5 0 0 0 .12.64l2.03 1.58a7.72 7.72 0 0 0-.05.94c0 .32.02.63.05.94L3.83 13.15a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.51.41 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.41h3.8a.5.5 0 0 0 .49-.41l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.57ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
+              </svg>
+            </button>
+            <div id="settingsMenu" class="header-menu hidden" role="menu" aria-label="Settings menu">
+              <button id="blockedElementsMenuItem" class="header-menu-item" type="button" role="menuitem">Blocked
+                Elements</button>
+            </div>
+          </div>
           <button class="icon-btn" type="button" aria-label="Notifications" style="position: relative;">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -500,12 +519,29 @@
         </section>
 
         <section class="section-view" data-section="settings">
-          <section class="panel">
+          <section class="panel settings-panel" aria-live="polite">
             <div class="panel-header">
               <div>
                 <p class="panel-kicker">Settings</p>
-                <h2>Workspace Preferences</h2>
-                <p class="panel-subtitle">Tune capture limits, retention, and UI.</p>
+                <h2>Blocked Elements</h2>
+                <p class="panel-subtitle">Review every selector hidden on the tracked page and remove anything you no longer need.</p>
+              </div>
+              <div class="panel-actions">
+                <span id="blockedElementsCount" class="count-pill">0</span>
+                <button id="refreshBlockedElementsBtn" class="ghost-btn" type="button">Refresh</button>
+              </div>
+            </div>
+            <div class="blocked-elements-shell">
+              <div class="blocked-elements-head">
+                <div>
+                  <h3>Saved Rules</h3>
+                  <p id="blockedElementsMeta" class="blocked-elements-meta">No blocked selectors yet.</p>
+                </div>
+                <button id="openElementsInspectorBtn" class="primary-btn" type="button">Open Elements</button>
+              </div>
+              <div id="blockedElementsList" class="blocked-elements-list"></div>
+              <div class="blocked-elements-footer">
+                <button id="clearBlockedElementsBtn" class="ghost-btn" type="button">Clear All</button>
               </div>
             </div>
           </section>
@@ -566,7 +602,8 @@
       </div>
       <div class="elements-head-actions">
         <button id="scanElementsBtn" class="ghost-btn" type="button">Scan Elements</button>
-        <button id="pickElementBtn" class="ghost-btn" type="button">Pick On Page</button>
+        <button id="pickElementBtn" class="ghost-btn hidden" type="button">Pick On Page</button>
+        <button id="blockElementBtn" class="primary-btn" type="button">Block Selected</button>
         <button id="closeElementsBtn" class="ghost-btn close-analysis-btn" type="button"
           aria-label="Close elements panel">Close</button>
       </div>
